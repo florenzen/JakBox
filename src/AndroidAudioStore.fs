@@ -2,7 +2,7 @@ namespace Fable.ReactNative.AndroidAudioStore
 
 open Fable.Core
 open Fable.Core.JsInterop
-open Fable.Import.Browser
+
 module Store =
     type GetAllOptions =
         { id: bool
