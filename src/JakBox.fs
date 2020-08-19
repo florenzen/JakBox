@@ -33,9 +33,9 @@ open Elmish.React
 open Elmish.ReactNative
 open Fable.ReactNative
 
-type Model = ()
+type Model = Unit
 
-type Message = ()
+type Message = Unit
 
 let init () = ((), Cmd.none)
 
