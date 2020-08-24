@@ -1,3 +1,7 @@
 module Utils
 
-let debug = if 
+let debug format =
+#if RELEASE
+#else
+    printf format
+#endif
