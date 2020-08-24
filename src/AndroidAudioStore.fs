@@ -32,7 +32,8 @@ open Fable.Core
 open Fable.Core.JsInterop
 
 module Store =
-    type GetAllOptions =
+    // fsharplint:disable RecordFieldNames
+    type GetAllOptions =        
         { id: bool
           blured: bool
           artist: bool
@@ -51,44 +52,14 @@ module Store =
           duration: string
           cover: string
           path: string }
+    // fsharplint:enable RecordFieldNames
 
-
-    type TrackExtended =
-        class
-        end
-
-    type IMusicFiles =
-        //abstract getAll: Options -> JS.Promise<TrackExtended[]>
+    type private IMusicFiles =
+        // fsharplint:disable MemberNames
         abstract getAll: GetAllOptions -> JS.Promise<Track []>
+        // fsharplint:enable MemberNames
 
-    // type Store() =
-    //[<ImportDefault("react-native-get-music-files")>]
-    let rngmf: IMusicFiles =
-        //jsNative
+    let private reactNativeGetMusicFiles: IMusicFiles =
         importDefault "react-native-get-music-files"
 
-    let musicFiles: IMusicFiles = 
-        printf "rngmf %O" rngmf        
-        rngmf
-
-    //  member __.GetSongs(?id: bool, ?blured: bool, ?artist: bool, ?duration: bool, ?cover: bool, ?genre: bool,
-    //                            ?title: bool, ?minimumSongDuration: uint32) =
-    let GetSongs ()
-        =
-        musicFiles.getAll 
-            { id = true
-              blured = false
-              artist = true
-              duration = true
-              cover = true
-              genre = true
-              title = true
-              minimumSongDuration = 1000u }
-            // { id = defaultArg id true
-            //   blured = defaultArg blured false
-            //   artist = defaultArg artist true
-            //   duration = defaultArg duration true
-            //   cover = defaultArg cover true
-            //   genre = defaultArg genre true
-            //   title = defaultArg genre true
-            //   minimumSongDuration = defaultArg minimumSongDuration 1000u }
+    let getAll (options: GetAllOptions) = reactNativeGetMusicFiles.getAll options
