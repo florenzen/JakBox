@@ -33,16 +33,29 @@ open Elmish.React
 open Elmish.ReactNative
 open Fable.ReactNative
 
-type Model = Unit
+type Model = { Text: string }
 
-type Message = Unit
+type Message = RequestPermissionResult of Permissions.PermissionStatus
 
-let init () = ((), Cmd.none)
+let requestReadExternalStoragePermission () =
+    Permissions.check Permissions.Android.ReadExternalStorage
+    |> Promise.bind (fun result ->
+        if result <> Permissions.Granted then
+            Permissions.request Permissions.Android.ReadExternalStorage
+            |> Promise.map RequestPermissionResult
+        else
+            RequestPermissionResult result |> Promise.lift)
 
-let update msg model = ((), Cmd.none)
-  
-let view model dispatch = 
-    view [] [text [] "JakBox" ]
+let init () =
+    let initModel = { Text = "initialized" }
+    let initSteps = requestReadExternalStoragePermission ()
+    (initModel, Cmd.OfPromise.result initSteps)
+
+let update msg model =
+    match msg with
+    | RequestPermissionResult result -> ({ Text = sprintf "result of permission request: %O" result }, Cmd.none)
+
+let view model dispatch = view [] [ text [] model.Text ]
 
 Program.mkProgram init update view
 #if RELEASE
