@@ -37,19 +37,29 @@ open Utils
 
 type Model = { Text: string }
 
-type Message = RequestPermissionResult of Permissions.PermissionStatus
+type Message =
+    | RequestPermissionResult of Permissions.PermissionStatus
+    | FindAllAudioFilesResult of string list
 
 let requestReadExternalStoragePermission () =
     Permissions.check Permissions.Android.ReadExternalStorage
     |> Promise.bind (fun result ->
         if result <> Permissions.Granted then
             debug "current permission status not %O, requesting it" Permissions.Granted
-            let requestResult = Permissions.request Permissions.Android.ReadExternalStorage
+
+            let requestResult =
+                Permissions.request Permissions.Android.ReadExternalStorage
+
             debug "result of requesting permission %O" requestResult
-            requestResult |> Promise.map RequestPermissionResult
+            requestResult
+            |> Promise.map RequestPermissionResult
         else
             debug "permission already granted"
             RequestPermissionResult result |> Promise.lift)
+
+let findAllAudioFiles () =
+    AudioRepository.findAllAudioFiles ()
+    |> Promise.map FindAllAudioFilesResult
 
 let init () =
     let initModel = { Text = "initialized" }
@@ -58,7 +68,12 @@ let init () =
 
 let update msg model =
     match msg with
-    | RequestPermissionResult result -> ({ Text = sprintf "result of permission request: %O" result }, Cmd.none)
+    | RequestPermissionResult result ->
+        let nextStep = findAllAudioFiles ()
+        ({ Text = sprintf "result of permission request: %O" result }, Cmd.OfPromise.result nextStep)
+    | FindAllAudioFilesResult paths ->
+        let fileListing = String.concat "\n" paths
+        ({ Text = fileListing }, Cmd.none)
 
 let view model dispatch = view [] [ text [] model.Text ]
 

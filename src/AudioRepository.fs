@@ -2,7 +2,7 @@ module AudioRepository
 
 open Fable.ReactNative.AndroidAudioStore
 
-let findAllMusicFiles () =
+let findAllAudioFiles () =
     getAll
         { id = false
           blured = false
