@@ -26,9 +26,9 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-namespace Fable.ReactNative.AndroidAudioStore
+namespace Fable.ReactNative
 
-module Store =
+module AndroidAudioStore =
     open Fable.Core
     open Fable.Core.JsInterop
 
