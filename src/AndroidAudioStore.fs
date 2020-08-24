@@ -28,12 +28,12 @@
 
 namespace Fable.ReactNative.AndroidAudioStore
 
-open Fable.Core
-open Fable.Core.JsInterop
-
 module Store =
+    open Fable.Core
+    open Fable.Core.JsInterop
+
     // fsharplint:disable RecordFieldNames
-    type GetAllOptions =        
+    type GetAllOptions =
         { id: bool
           blured: bool
           artist: bool
@@ -57,7 +57,7 @@ module Store =
     type private IMusicFiles =
         // fsharplint:disable MemberNames
         abstract getAll: GetAllOptions -> JS.Promise<Track []>
-        // fsharplint:enable MemberNames
+    // fsharplint:enable MemberNames
 
     let private reactNativeGetMusicFiles: IMusicFiles =
         importDefault "react-native-get-music-files"
