@@ -33,6 +33,8 @@ open Elmish.React
 open Elmish.ReactNative
 open Fable.ReactNative
 
+open Utils
+
 type Model = { Text: string }
 
 type Message = RequestPermissionResult of Permissions.PermissionStatus
@@ -41,9 +43,12 @@ let requestReadExternalStoragePermission () =
     Permissions.check Permissions.Android.ReadExternalStorage
     |> Promise.bind (fun result ->
         if result <> Permissions.Granted then
-            Permissions.request Permissions.Android.ReadExternalStorage
-            |> Promise.map RequestPermissionResult
+            debug "current permission status not %O, requesting it" Permissions.Granted
+            let requestResult = Permissions.request Permissions.Android.ReadExternalStorage
+            debug "result of requesting permission %O" requestResult
+            requestResult |> Promise.map RequestPermissionResult
         else
+            debug "permission already granted"
             RequestPermissionResult result |> Promise.lift)
 
 let init () =
