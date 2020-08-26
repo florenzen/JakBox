@@ -7,6 +7,7 @@
   <ItemGroup>
     <Compile Include="Permissions.fs" />
     <Compile Include="AndroidAudioStore.fs" />
+    <Compile Include="SqLiteStorage.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="AudioRepository.fs" />
     <Compile Include="JakBox.fs" />
