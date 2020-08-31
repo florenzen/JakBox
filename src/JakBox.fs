@@ -35,6 +35,8 @@ open Fable.ReactNative
 open Fable.ReactNative.SqLiteStorage
 
 open Utils
+open Fable.Import.ReactNative.SqLiteStorage
+open Fable.Core.JsInterop
 
 type Model = { Text: string }
 
@@ -63,17 +65,45 @@ let findAllAudioFiles () =
     AudioRepository.findAllAudioFiles ()
     |> Promise.map FindAllAudioFilesResult
 
+let sqLite: ISqLite =
+    importDefault "react-native-sqlite-storage"
+
 let interactWithSqLite () =
-    let sqLite = SqLiteDatabase("repo.sqlite")
-    sqLite.OpenDatabase()
-    |> Promise.bind (fun _ ->
-        // let tx = sqLite.Transaction()
-        // printfn "sqLite %O" sqLite
-        // printfn "tx1 %O" tx
-        sqLite.Transaction(fun tx ->    
-            printfn "tx %O" tx
-            tx.ExecuteSql("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)") |> printfn "result of create table %O")
-        |> Promise.map (fun _ -> InteractWithSqLiteResult "created table Foo"))
+    sqLite.enablePromise (true)
+    sqLite.DEBUG(true)
+    sqLite.openDatabase ("repo.sqlite")
+    |> Promise.bind (fun db ->
+        db.transaction (fun tx ->
+            tx.executeSql ("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)", [||])            
+            tx.executeSql ("INSERT INTO Foo (Id, Name) VALUES (1, 'one111')", [||])            
+            tx.executeSql ("SELECT * FROM Foo", [||])
+            |> Promise.bind (fun r ->
+            // |> Promise.bind (fun r2 -> 
+                printfn "foo %O" (r.[1]?rows?item(4)?Name)
+                Promise.lift ())))
+
+        |> Promise.bind (fun r2 -> Promise.lift (InteractWithSqLiteResult "finished with SQLite"))
+
+
+// let sqLite = SqLiteDatabase("repo.sqlite")
+// sqLite.OpenDatabase()
+// |> Promise.bind (fun _ ->
+//     // let tx = sqLite.Transaction()
+//     // printfn "sqLite %O" sqLite
+//     // printfn "tx1 %O" tx
+//     sqLite.Transaction(fun tx ->
+//         printfn "tx %O" tx
+//         tx.ExecuteSql("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)")
+//         |> Promise.bind (fun (tx1, r1) ->
+//             printfn "result of create table %O" r1.Length
+//             tx1.ExecuteSql("INSERT INTO Foo (Id, Name) VALUES (1, 'one')")
+//             |> Promise.bind (fun r2 ->
+//             //     tx.ExecuteSql("INSERT INTO Foo (Id, Name) VALUES (2, 'two')")
+//             //     |> Promise.bind (fun r3 ->
+//             //         tx.ExecuteSql("SELECT * FROM Foo")
+//             //         |> Promise.bind (fun res ->
+//             //             printfn "select result %O" res
+//                 Promise.lift (InteractWithSqLiteResult "created table Foo")))))
 
 let init () =
     let initModel = { Text = "initialized" }
@@ -89,8 +119,7 @@ let update msg model =
     | FindAllAudioFilesResult paths ->
         let fileListing = String.concat "\n" paths
         ({ Text = fileListing }, Cmd.none)
-    | InteractWithSqLiteResult text ->
-        ({ Text = text }, Cmd.none)
+    | InteractWithSqLiteResult text -> ({ Text = text }, Cmd.none)
 
 let view model dispatch = view [] [ text [] model.Text ]
 

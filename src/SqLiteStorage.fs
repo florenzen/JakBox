@@ -48,14 +48,18 @@ type ISqLite =
 namespace Fable.ReactNative.SqLiteStorage
 
 open Fable.Import.ReactNative.SqLiteStorage
+open Fable.Core
 open Fable.Core.JsInterop
 
 type SqLiteTransaction(transaction: ISqLiteTransaction) =
     member __.ExecuteSql(statement: string, ?values: seq<obj>) =
         let valuesArray =
             defaultArg values Seq.empty |> Seq.toArray
-
+        printfn "before execute sql"
         transaction.executeSql (statement, valuesArray)
+        |> Promise.bind (fun result ->
+            printfn "length of result of executeSql %i" result.Length
+            Promise.lift (SqLiteTransaction(result.[0] :?> ISqLiteTransaction), Array.skip 1 result))
 
 type SqLiteDatabase(path: string) =
     let sqLite: ISqLite =
@@ -80,7 +84,7 @@ type SqLiteDatabase(path: string) =
             db.closeDatabase ()
             |> Promise.map (fun _ -> sqLiteDatabase <- None)
 
-    member __.Transaction(operation: SqLiteTransaction -> 'T) =
+    member __.Transaction(operation: SqLiteTransaction -> JS.Promise<'T>) =
         match sqLiteDatabase with
         | None -> Promise.reject (sprintf "SQLite database %s not opened" path)
         | Some db -> db.transaction (SqLiteTransaction >> operation)
