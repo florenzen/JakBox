@@ -32,6 +32,7 @@ open Elmish
 open Elmish.React
 open Elmish.ReactNative
 open Fable.ReactNative
+open Fable.ReactNative.SqLiteStorage
 
 open Utils
 
@@ -40,6 +41,7 @@ type Model = { Text: string }
 type Message =
     | RequestPermissionResult of Permissions.PermissionStatus
     | FindAllAudioFilesResult of string list
+    | InteractWithSqLiteResult of string
 
 let requestReadExternalStoragePermission () =
     Permissions.check Permissions.Android.ReadExternalStorage
@@ -61,6 +63,18 @@ let findAllAudioFiles () =
     AudioRepository.findAllAudioFiles ()
     |> Promise.map FindAllAudioFilesResult
 
+let interactWithSqLite () =
+    let sqLite = SqLiteDatabase("repo.sqlite")
+    sqLite.OpenDatabase()
+    |> Promise.bind (fun _ ->
+        // let tx = sqLite.Transaction()
+        // printfn "sqLite %O" sqLite
+        // printfn "tx1 %O" tx
+        sqLite.Transaction(fun tx ->    
+            printfn "tx %O" tx
+            tx.ExecuteSql("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)") |> printfn "result of create table %O")
+        |> Promise.map (fun _ -> InteractWithSqLiteResult "created table Foo"))
+
 let init () =
     let initModel = { Text = "initialized" }
     let initSteps = requestReadExternalStoragePermission ()
@@ -69,11 +83,14 @@ let init () =
 let update msg model =
     match msg with
     | RequestPermissionResult result ->
-        let nextStep = findAllAudioFiles ()
+        //let nextStep = findAllAudioFiles ()
+        let nextStep = interactWithSqLite ()
         ({ Text = sprintf "result of permission request: %O" result }, Cmd.OfPromise.result nextStep)
     | FindAllAudioFilesResult paths ->
         let fileListing = String.concat "\n" paths
         ({ Text = fileListing }, Cmd.none)
+    | InteractWithSqLiteResult text ->
+        ({ Text = text }, Cmd.none)
 
 let view model dispatch = view [] [ text [] model.Text ]
 

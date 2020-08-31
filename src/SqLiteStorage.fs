@@ -36,11 +36,12 @@ type ISqLiteTransaction =
 
 type ISqLiteDatabase =
     abstract closeDatabase: unit -> JS.Promise<unit>
-    abstract transaction: unit -> JS.Promise<ISqLiteTransaction>
+    abstract transaction: (ISqLiteTransaction -> 'T) -> JS.Promise<'T>
 
 type ISqLite =
     abstract openDatabase: string -> JS.Promise<ISqLiteDatabase>
     abstract enablePromise: bool -> unit
+    abstract DEBUG: bool -> unit
 // fsharp:enable MemberNames
 
 
@@ -51,14 +52,20 @@ open Fable.Core.JsInterop
 
 type SqLiteTransaction(transaction: ISqLiteTransaction) =
     member __.ExecuteSql(statement: string, ?values: seq<obj>) =
-        let valuesArray = defaultArg values Seq.empty |> Seq.toArray
+        let valuesArray =
+            defaultArg values Seq.empty |> Seq.toArray
+
         transaction.executeSql (statement, valuesArray)
 
 type SqLiteDatabase(path: string) =
     let sqLite: ISqLite =
-        import "SQLite" "react-native-sqlite-storage"
+        importDefault "react-native-sqlite-storage"
 
-    do sqLite.enablePromise true
+    do
+        printf "%O" sqLite
+        sqLite.DEBUG true
+        sqLite.enablePromise true
+        printf "enabled promise"
 
     let mutable sqLiteDatabase: ISqLiteDatabase option = None
 
@@ -73,9 +80,7 @@ type SqLiteDatabase(path: string) =
             db.closeDatabase ()
             |> Promise.map (fun _ -> sqLiteDatabase <- None)
 
-    member __.Transaction() =
+    member __.Transaction(operation: SqLiteTransaction -> 'T) =
         match sqLiteDatabase with
         | None -> Promise.reject (sprintf "SQLite database %s not opened" path)
-        | Some db ->
-            db.transaction ()
-            |> Promise.map SqLiteTransaction
+        | Some db -> db.transaction (SqLiteTransaction >> operation)
