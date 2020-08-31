@@ -63,7 +63,7 @@ type SqLiteDatabase(path: string) =
 
     member __.OpenDatabase() =
         sqLite.openDatabase path
-        |> Promise.map (fun db -> sqLiteDatabase <- Some(db))
+        |> Promise.map (fun db -> sqLiteDatabase <- Some db)
 
     member __.CloseDatabase() =
         match sqLiteDatabase with
@@ -75,6 +75,6 @@ type SqLiteDatabase(path: string) =
     member __.Transaction() =
         match sqLiteDatabase with
         | None -> Promise.reject (sprintf "SQLite database %s not opened" path)
-        | Some (db) ->
+        | Some db ->
             db.transaction ()
-            |> Promise.map (fun tx -> SqLiteTransaction(tx))
+            |> Promise.map SqLiteTransaction
