@@ -50,8 +50,9 @@ open Fable.Import.ReactNative.SqLiteStorage
 open Fable.Core.JsInterop
 
 type SqLiteTransaction(transaction: ISqLiteTransaction) =
-    member __.ExecuteSql(statement: string, values: obj []) =
-        transaction.executeSql (statement, values)
+    member __.ExecuteSql(statement: string, ?values: seq<obj>) =
+        let valuesArray = defaultArg values Seq.empty |> Seq.toArray
+        transaction.executeSql (statement, valuesArray)
 
 type SqLiteDatabase(path: string) =
     let sqLite: ISqLite =
