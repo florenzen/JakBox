@@ -19,7 +19,9 @@ module.exports = {
   babel: {
     filename: "JakBox.js",
     presets: ["module:metro-react-native-babel-preset"],
-    sourceMaps: true
+    sourceMaps: true,
+    minified: false,    
+    compact: false
   },
   fable: {
     define: define
