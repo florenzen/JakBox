@@ -32,7 +32,7 @@ open Elmish
 open Elmish.React
 open Elmish.ReactNative
 open Fable.ReactNative
-open Fable.ReactNative.SqLiteStorage
+
 
 open Utils
 open Fable.Import.ReactNative.SqLiteStorage
@@ -65,24 +65,35 @@ let findAllAudioFiles () =
     AudioRepository.findAllAudioFiles ()
     |> Promise.map FindAllAudioFilesResult
 
-let sqLite: ISqLite =
-    importDefault "react-native-sqlite-storage"
+
+// let sqLite: ISqLite =
+//     importDefault "react-native-sqlite-storage"
 
 let interactWithSqLite () =
-    sqLite.enablePromise (true)
-    sqLite.DEBUG(true)
-    sqLite.openDatabase ("repo.sqlite")
-    |> Promise.bind (fun db ->
-        db.transaction (fun tx ->
-            tx.executeSql ("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)", [||])            
-            tx.executeSql ("INSERT INTO Foo (Id, Name) VALUES (1, 'one111')", [||])            
-            tx.executeSql ("SELECT * FROM Foo", [||])
-            |> Promise.bind (fun r ->
-            // |> Promise.bind (fun r2 -> 
-                printfn "foo %O" (r.[1]?rows?item(4)?Name)
-                Promise.lift ())))
+    // sqLite.EnablePromise (true)
 
-        |> Promise.bind (fun r2 -> Promise.lift (InteractWithSqLiteResult "finished with SQLite"))
+    // sqLite.Debug(true)
+    SqLiteStorage.openDatabase "repo.sqlite"
+    |> Promise.bind (fun db ->
+        db.Transaction (fun tx ->
+            tx.ExecuteSql ("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)", [||])
+            tx.ExecuteSql ("INSERT INTO Foo (Id, Name) VALUES (1, 'one111')", [||])
+            tx.ExecuteSql ("SELECT * FROM Foo", [||]) 
+            |> Promise.bind (fun r ->
+                // |> Promise.bind (fun r2 ->
+                printfn "foo %O" (r.[1].Rows.Item(4))?Name
+                printfn "len %O" (r.[1].Rows.Length)
+                Promise.lift r.[0].Rows))
+                
+                )
+
+                // |> Promise.bind (fun rows2 ->
+                //     tx.ExecuteSql ("SELECT * FROM Foo", [||])
+                //     |> Promise.bind (fun r4 ->
+                //         printfn "bar %O" (r4.[1].Rows.Item(1)?Id)
+                //         Promise.lift ())))))
+
+    |> Promise.bind (fun r2 ->Promise.lift (InteractWithSqLiteResult "finished with SQLite"))
 
 
 // let sqLite = SqLiteDatabase("repo.sqlite")
