@@ -30,69 +30,50 @@ namespace Fable.Import.ReactNative.SqLiteStorage
 
 open Fable.Core
 
-// fsharplint:disable MemberNames
-type ISqLiteTransaction =
-    abstract executeSql: string * obj [] -> JS.Promise<obj []>
-
 type ISqlRows =
-    abstract item: int32 -> obj
-    abstract length: int32
+    [<Emit("$0.item($1)")>]
+    abstract Item: int32 -> obj
+
+    [<Emit("$0.length")>]
+    abstract Length: int32
 
 type ISqlResult =
-    abstract rows: ISqlRows    
+    [<Emit("$0.rows")>]
+    abstract Rows: ISqlRows
+
+type ISqLiteTransaction =
+    [<Emit("$0.executeSql($1, $2)")>]
+    abstract ExecuteSql: string * obj [] -> JS.Promise<ISqlResult []>
 
 type ISqLiteDatabase =
-    abstract closeDatabase: unit -> JS.Promise<unit>
-    abstract transaction: (ISqLiteTransaction -> 'T) -> JS.Promise<'T>
-    abstract executeSql: string * obj[] -> JS.Promise<ISqlResult []>
+    [<Emit("$.closeDatabase")>]
+    abstract CloseDatabase: unit -> JS.Promise<unit>
+
+    [<Emit("$0.transaction($1)")>]
+    abstract Transaction: (ISqLiteTransaction -> 'T) -> JS.Promise<'T>
+
+    [<Emit("$0.executeSql($1, $2)")>]
+    abstract ExecuteSql: string * obj [] -> JS.Promise<ISqlResult []>
 
 type ISqLite =
-    abstract openDatabase: string -> JS.Promise<ISqLiteDatabase>
-    abstract enablePromise: bool -> unit
-    abstract DEBUG: bool -> unit
-// fsharp:enable MemberNames
+    [<Emit("$0.openDatabase($1)")>]
+    abstract OpenDatabase: string -> JS.Promise<ISqLiteDatabase>
 
+    [<Emit("$0.enablePromise($1)")>]
+    abstract EnablePromise: bool -> unit
 
-namespace Fable.ReactNative.SqLiteStorage
+    [<Emit("$0.DEBUG($1)")>]
+    abstract Debug: bool -> unit
+
+namespace Fable.ReactNative
 
 open Fable.Import.ReactNative.SqLiteStorage
-open Fable.Core
 open Fable.Core.JsInterop
 
-type SqLiteTransaction(transaction: ISqLiteTransaction) =
-    member __.ExecuteSql(statement: string, ?values: seq<obj>) =
-        let valuesArray =
-            defaultArg values Seq.empty |> Seq.toArray
-        printfn "before execute sql"
-        transaction.executeSql (statement, valuesArray)
-        |> Promise.bind (fun result ->
-            printfn "length of result of executeSql %i" result.Length
-            Promise.lift (SqLiteTransaction(result.[0] :?> ISqLiteTransaction), Array.skip 1 result))
-
-type SqLiteDatabase(path: string) =
-    let sqLite: ISqLite =
+module SQLiteStorage =
+    let private sqLite: ISqLite =
         importDefault "react-native-sqlite-storage"
 
-    do
-        printf "%O" sqLite
-        sqLite.DEBUG true
-        sqLite.enablePromise true
-        printf "enabled promise"
+    let openDatabase (path: string) = sqLite.OpenDatabase path
 
-    let mutable sqLiteDatabase: ISqLiteDatabase option = None
-
-    member __.OpenDatabase() =
-        sqLite.openDatabase path
-        |> Promise.map (fun db -> sqLiteDatabase <- Some db)
-
-    member __.CloseDatabase() =
-        match sqLiteDatabase with
-        | None -> Promise.lift ()
-        | Some db ->
-            db.closeDatabase ()
-            |> Promise.map (fun _ -> sqLiteDatabase <- None)
-
-    member __.Transaction(operation: SqLiteTransaction -> JS.Promise<'T>) =
-        match sqLiteDatabase with
-        | None -> Promise.reject (sprintf "SQLite database %s not opened" path)
-        | Some db -> db.transaction (SqLiteTransaction >> operation)
+    sqLite.EnablePromise true
