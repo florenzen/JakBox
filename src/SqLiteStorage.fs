@@ -70,7 +70,7 @@ namespace Fable.ReactNative
 open Fable.Import.ReactNative.SqLiteStorage
 open Fable.Core.JsInterop
 
-module SQLiteStorage =
+module SqLiteStorage =
     let private sqLite: ISqLite =
         importDefault "react-native-sqlite-storage"
 
