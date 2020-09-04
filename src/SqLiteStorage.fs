@@ -34,9 +34,17 @@ open Fable.Core
 type ISqLiteTransaction =
     abstract executeSql: string * obj [] -> JS.Promise<obj []>
 
+type ISqlRows =
+    abstract item: int32 -> obj
+    abstract length: int32
+
+type ISqlResult =
+    abstract rows: ISqlRows    
+
 type ISqLiteDatabase =
     abstract closeDatabase: unit -> JS.Promise<unit>
     abstract transaction: (ISqLiteTransaction -> 'T) -> JS.Promise<'T>
+    abstract executeSql: string * obj[] -> JS.Promise<ISqlResult []>
 
 type ISqLite =
     abstract openDatabase: string -> JS.Promise<ISqLiteDatabase>
