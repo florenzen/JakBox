@@ -33,9 +33,10 @@ open Elmish.React
 open Elmish.ReactNative
 open Fable.ReactNative
 
-
 open Utils
 open Fable.Import.ReactNative.SqLiteStorage
+open Fable.ReactNative.SqLiteStorageExtensions
+open Fable.Core
 open Fable.Core.JsInterop
 
 type Model = { Text: string }
@@ -61,13 +62,23 @@ let requestReadExternalStoragePermission () =
             debug "permission already granted"
             RequestPermissionResult result |> Promise.lift)
 
-let findAllAudioFiles () =
-    AudioRepository.findAllAudioFiles ()
-    |> Promise.map FindAllAudioFilesResult
+// let findAllAudioFiles () =
+//     AudioRepository.findAllAudioFiles ()
+//     |> Promise.map FindAllAudioFilesResult
 
 
 // let sqLite: ISqLite =
 //     importDefault "react-native-sqlite-storage"
+
+let tfun (tx: ISqLiteTransaction): JS.Promise<unit> =
+            tx.ExecuteNonQuery("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)")            
+            tx.ExecuteNonQuery("INSERT INTO Foo (Id, Name) VALUES (1, 'one111')")            
+            tx.ExecuteQuery("SELECT * FROM Foo")
+            |> Promise.map (fun r ->
+                // |> Promise.bind (fun r2 ->
+                printfn "foo %O" (r.Rows.Item(4))?Name
+                printfn "len %O" (r.Rows.Length)
+            )
 
 let interactWithSqLite () =
     // sqLite.EnablePromise (true)
@@ -75,25 +86,20 @@ let interactWithSqLite () =
     // sqLite.Debug(true)
     SqLiteStorage.openDatabase "repo.sqlite"
     |> Promise.bind (fun db ->
-        db.Transaction (fun tx ->
-            tx.ExecuteSql ("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)", [||])
-            tx.ExecuteSql ("INSERT INTO Foo (Id, Name) VALUES (1, 'one111')", [||])
-            tx.ExecuteSql ("SELECT * FROM Foo", [||]) 
-            |> Promise.bind (fun r ->
-                // |> Promise.bind (fun r2 ->
-                printfn "foo %O" (r.[1].Rows.Item(4))?Name
-                printfn "len %O" (r.[1].Rows.Length)
-                Promise.lift r.[0].Rows))
-                
-                )
+        db.Transaction tfun)
 
-                // |> Promise.bind (fun rows2 ->
-                //     tx.ExecuteSql ("SELECT * FROM Foo", [||])
-                //     |> Promise.bind (fun r4 ->
-                //         printfn "bar %O" (r4.[1].Rows.Item(1)?Id)
-                //         Promise.lift ())))))
+    // |> Promise.bind (fun rows2 ->
+    //     tx.ExecuteSql ("SELECT * FROM Foo", [||])
+    //     |> Promise.bind (fun r4 ->
+    //         printfn "bar %O" (r4.[1].Rows.Item(1)?Id)
+    //         Promise.lift ())))))
 
-    |> Promise.bind (fun r2 ->Promise.lift (InteractWithSqLiteResult "finished with SQLite"))
+    |> Promise.bind (fun r2 ->
+        Promise.lift
+            (InteractWithSqLiteResult
+                (sprintf "finished with SQLite")))
+                 //.Length.ToString())
+
 
 
 // let sqLite = SqLiteDatabase("repo.sqlite")
@@ -116,6 +122,11 @@ let interactWithSqLite () =
 //             //             printfn "select result %O" res
 //                 Promise.lift (InteractWithSqLiteResult "created table Foo")))))
 
+let interactWithAudioRepo () =
+    AudioRepository.openRepo "repo.sqlite"
+    //|> Promise.bind AudioRepository.closeRepo
+    |> Promise.map (fun _ -> InteractWithSqLiteResult "finished with interacting with repo")
+
 let init () =
     let initModel = { Text = "initialized" }
     let initSteps = requestReadExternalStoragePermission ()
@@ -125,7 +136,8 @@ let update msg model =
     match msg with
     | RequestPermissionResult result ->
         //let nextStep = findAllAudioFiles ()
-        let nextStep = interactWithSqLite ()
+        //let nextStep = interactWithSqLite ()
+        let nextStep = interactWithAudioRepo ()
         ({ Text = sprintf "result of permission request: %O" result }, Cmd.OfPromise.result nextStep)
     | FindAllAudioFilesResult paths ->
         let fileListing = String.concat "\n" paths
