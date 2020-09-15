@@ -77,6 +77,8 @@ module SqLiteStorage =
 
     let openDatabase (path: string) = sqLite.OpenDatabase path
 
+    let setDebugMode (enable: bool) = sqLite.Debug enable
+
     sqLite.EnablePromise true
 
 module SqLiteStorageExtensions =
