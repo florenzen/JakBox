@@ -28,9 +28,64 @@
 
 module AudioRepository
 
+open Utils
 open Fable.ReactNative.AndroidAudioStore
+open Fable.Import.ReactNative.SqLiteStorage
+open Fable.ReactNative.SqLiteStorage
+open Fable.ReactNative.SqLiteStorageExtensions
 
-let findAllAudioFiles () =
+type AudioRepo = { Database: ISqLiteDatabase }
+
+let private initDirectoryTable (tx: ISqLiteTransaction) =
+    tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Directory (
+    Id INTEGER PRIMARY KEY,
+    Name TEXT,
+    DirectoryId INTEGER)" 
+    |> Promise.map (fun () -> debug "initalized Directory table")
+
+let private initArtistTable (tx: ISqLiteTransaction) =
+    tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Artist (
+    Id INTEGER PRIMARY KEY,
+    Name TEXT)"
+    |> Promise.map (fun () -> debug "initalized Artist table")
+
+let private initAlbumTable (tx: ISqLiteTransaction) =
+    tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Album (
+    Id INTEGER PRIMARY KEY,
+    Name,
+    ArtistId INTEGER,
+    Cover BLOB)"
+    |> Promise.map (fun () -> debug "initalized Album table")
+
+let private initTrackTable (tx: ISqLiteTransaction) =
+    tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Track (
+    Id INTEGER PRIMARY KEY,
+    Name TEXT,
+    AlbumnId INTEGER,
+    Duration INTEGER,
+    Filename TEXT,
+    DirectoryId INTEGER)"
+    |> Promise.map (fun () -> debug "initalized Track table")
+
+let private initTables (db: ISqLiteDatabase) =
+    db.Transaction(fun tx ->
+        initDirectoryTable tx |> ignore        
+        initArtistTable tx |> ignore
+        initAlbumTable tx |> ignore
+        initTrackTable tx)
+
+let openRepo (dbName: string) =
+#if DEBUG
+    setDebugMode true
+#endif
+    openDatabase dbName    
+    |> Promise.bind (fun db ->        
+        initTables db
+        |> Promise.map (fun () -> { Database = db }))
+
+let closeRepo (repo: AudioRepo) = repo.Database.CloseDatabase ()
+
+let private findAllAudioFiles () =
     getAll
         { id = false
           blured = false
