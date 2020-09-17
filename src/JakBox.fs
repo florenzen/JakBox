@@ -62,31 +62,40 @@ let requestReadExternalStoragePermission () =
             debug "permission already granted"
             RequestPermissionResult result |> Promise.lift)
 
-// let findAllAudioFiles () =
-//     AudioRepository.findAllAudioFiles ()
-//     |> Promise.map FindAllAudioFilesResult
+let findAllAudioFiles () =
+    // AndroidAudioStore.getAll {
+    //       id = false
+    //       blured = false
+    //       artist = false
+    //       duration = false
+    //       cover = false
+    //       genre = false
+    //       title = false
+    //       minimumSongDuration = 10u }
+    // |> Promise.map (fun t -> Array.map (fun (t1: AndroidAudioStore.Track) -> t1.path) t |> Array.toList |> FindAllAudioFilesResult)
+    AudioRepository.findAllAudioFiles ()
+    |> Promise.map FindAllAudioFilesResult
+
 
 
 // let sqLite: ISqLite =
 //     importDefault "react-native-sqlite-storage"
 
 let tfun (tx: ISqLiteTransaction): JS.Promise<unit> =
-            tx.ExecuteNonQuery("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)")            
-            tx.ExecuteNonQuery("INSERT INTO Foo (Id, Name) VALUES (1, 'one111')")            
-            tx.ExecuteQuery("SELECT * FROM Foo")
-            |> Promise.map (fun r ->
-                // |> Promise.bind (fun r2 ->
-                printfn "foo %O" (r.Rows.Item(4))?Name
-                printfn "len %O" (r.Rows.Length)
-            )
+    tx.ExecuteNonQuery("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)")
+    tx.ExecuteNonQuery("INSERT INTO Foo (Id, Name) VALUES (1, 'one111')")
+    tx.ExecuteQuery("SELECT * FROM Foo")
+    |> Promise.map (fun r ->
+        // |> Promise.bind (fun r2 ->
+        printfn "foo %O" (r.Rows.Item(4))?Name
+        printfn "len %O" (r.Rows.Length))
 
 let interactWithSqLite () =
     // sqLite.EnablePromise (true)
 
     // sqLite.Debug(true)
     SqLiteStorage.openDatabase "repo.sqlite"
-    |> Promise.bind (fun db ->
-        db.Transaction tfun)
+    |> Promise.bind (fun db -> db.Transaction tfun)
 
     // |> Promise.bind (fun rows2 ->
     //     tx.ExecuteSql ("SELECT * FROM Foo", [||])
@@ -94,11 +103,8 @@ let interactWithSqLite () =
     //         printfn "bar %O" (r4.[1].Rows.Item(1)?Id)
     //         Promise.lift ())))))
 
-    |> Promise.bind (fun r2 ->
-        Promise.lift
-            (InteractWithSqLiteResult
-                (sprintf "finished with SQLite")))
-                 //.Length.ToString())
+    |> Promise.bind (fun r2 -> Promise.lift (InteractWithSqLiteResult(sprintf "finished with SQLite")))
+//.Length.ToString())
 
 
 
@@ -124,8 +130,11 @@ let interactWithSqLite () =
 
 let interactWithAudioRepo () =
     AudioRepository.openRepo "repo.sqlite"
-    //|> Promise.bind AudioRepository.closeRepo
-    |> Promise.map (fun _ -> InteractWithSqLiteResult "finished with interacting with repo")
+    |> Promise.bind (fun repo ->
+        AudioRepository.updateRepo repo
+        |> Promise.bind (fun repo ->
+            AudioRepository.closeRepo repo
+            Promise.lift (InteractWithSqLiteResult "finished with interacting with repo")))
 
 let init () =
     let initModel = { Text = "initialized" }
