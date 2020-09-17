@@ -26,5 +26,47 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-namespace Fable.Import.ReactNative.JsMediaTags
+namespace Fable.ReactNative
 
+module JsMediaTags =
+
+    open Fable.Core
+    open Fable.Core.JsInterop
+
+    type ITag =
+        [<Emit("$0.type")>]
+        abstract Type: string
+        [<Emit("$0.version")>]
+        abstract Version: string
+        [<Emit("$0.major")>]
+        abstract Major: int32
+        [<Emit("$0.revision")>]
+        abstract Revision: int32
+        [<Emit("$0.size")>]
+        abstract Size: int32
+
+    type private Callbacks(onSuccess: ITag -> unit, onError: exn -> unit) =
+        [<Emit("$0.onSuccess")>]
+        member __.OnSuccess = onSuccess
+
+        [<Emit("$0.onError")>]
+        member __.OnError = onError
+
+    type private IReader =
+        [<Emit("$0.read($1)")>]
+        abstract Read: Callbacks -> unit
+
+        [<Emit("$0.setTagsToRead($1)")>]
+        abstract SetTagsToRead: string [] -> IReader
+
+    type private IJsMediaTags =
+        abstract Reader: string -> IReader
+
+    let private jsMediaTags: IJsMediaTags = importDefault "jsmediatags"
+
+    let readAll (path: string) =
+        Promise.create (fun resolve reject -> jsMediaTags.Reader(path).Read(Callbacks(resolve, reject)))
+
+    let readTags (path: string) (tags: string []) =
+        Promise.create (fun resolve reject ->
+            jsMediaTags.Reader(path).SetTagsToRead(tags).Read(Callbacks(resolve, reject)))
