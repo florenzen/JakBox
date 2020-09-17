@@ -47,7 +47,7 @@ type ISqLiteTransaction =
 
 type ISqLiteDatabase =
     [<Emit("$0.closeDatabase")>]
-    abstract CloseDatabase: unit -> JS.Promise<unit>
+    abstract CloseDatabase: unit -> unit
 
     [<Emit("$0.transaction($1)")>]
     abstract Transaction: (ISqLiteTransaction -> JS.Promise<unit>) -> JS.Promise<unit>
