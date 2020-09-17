@@ -34,13 +34,15 @@ open Fable.Import.ReactNative.SqLiteStorage
 open Fable.ReactNative.SqLiteStorage
 open Fable.ReactNative.SqLiteStorageExtensions
 
-type AudioRepo = { Database: ISqLiteDatabase }
+type AudioRepo =
+    { Database: ISqLiteDatabase
+      DbName: string }
 
 let private initDirectoryTable (tx: ISqLiteTransaction) =
     tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Directory (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
-    DirectoryId INTEGER)" 
+    DirectoryId INTEGER)"
     |> Promise.map (fun () -> debug "initalized Directory table")
 
 let private initArtistTable (tx: ISqLiteTransaction) =
@@ -69,7 +71,7 @@ let private initTrackTable (tx: ISqLiteTransaction) =
 
 let private initTables (db: ISqLiteDatabase) =
     db.Transaction(fun tx ->
-        initDirectoryTable tx |> ignore        
+        initDirectoryTable tx |> ignore
         initArtistTable tx |> ignore
         initAlbumTable tx |> ignore
         initTrackTable tx)
@@ -78,12 +80,15 @@ let openRepo (dbName: string) =
 #if DEBUG
     setDebugMode true
 #endif
-    openDatabase dbName    
-    |> Promise.bind (fun db ->        
+    openDatabase dbName
+    |> Promise.bind (fun db ->
+        debug "opened repo database %s" dbName
         initTables db
-        |> Promise.map (fun () -> { Database = db }))
+        |> Promise.map (fun () -> { Database = db; DbName = dbName }))
 
-let closeRepo (repo: AudioRepo) = repo.Database.CloseDatabase ()
+let closeRepo (repo: AudioRepo) =
+    repo.Database.CloseDatabase()
+    debug "closed repo database %s" repo.DbName
 
 let private findAllAudioFiles () =
     getAll
