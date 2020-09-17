@@ -76,6 +76,21 @@ let private initTables (db: ISqLiteDatabase) =
         initAlbumTable tx |> ignore
         initTrackTable tx)
 
+let findAllAudioFiles () =
+    getAll
+        { id = false
+          blured = false
+          artist = false
+          duration = false
+          cover = false
+          genre = false
+          title = false
+          minimumSongDuration = 10u }
+    |> Promise.map (fun tracks ->
+        tracks
+        |> Array.map (fun track -> track.path)
+        |> List.ofArray)
+
 let openRepo (dbName: string) =
 #if DEBUG
     setDebugMode true
@@ -90,17 +105,9 @@ let closeRepo (repo: AudioRepo) =
     repo.Database.CloseDatabase()
     debug "closed repo database %s" repo.DbName
 
-let private findAllAudioFiles () =
-    getAll
-        { id = false
-          blured = false
-          artist = false
-          duration = false
-          cover = false
-          genre = false
-          title = false
-          minimumSongDuration = 10u }
-    |> Promise.map (fun tracks ->
-        tracks
-        |> Array.map (fun track -> track.path)
-        |> List.ofArray)
+let updateRepo (repo: AudioRepo) =
+    findAllAudioFiles ()
+    |> Promise.bind (fun paths ->
+        paths |> List.iter (debug "path %s")
+        Promise.lift repo)
+
