@@ -33,6 +33,7 @@ open Fable.ReactNative.AndroidAudioStore
 open Fable.Import.ReactNative.SqLiteStorage
 open Fable.ReactNative.SqLiteStorage
 open Fable.ReactNative.SqLiteStorageExtensions
+open Fable.ReactNative
 
 type AudioRepo =
     { Database: ISqLiteDatabase
@@ -108,6 +109,8 @@ let closeRepo (repo: AudioRepo) =
 let updateRepo (repo: AudioRepo) =
     findAllAudioFiles ()
     |> Promise.bind (fun paths ->
-        paths |> List.iter (debug "path %s")
-        Promise.lift repo)
-
+        let path = List.head paths
+        JsMediaTags.read path
+        |> Promise.bind (fun id3 ->
+            debug "ID3: %s %s %s" id3.Tags.Artist id3.Tags.Album id3.Tags.Title
+            Promise.lift repo))
