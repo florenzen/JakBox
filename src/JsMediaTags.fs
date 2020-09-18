@@ -29,7 +29,6 @@
 namespace Fable.ReactNative
 
 module JsMediaTags =
-
     open Fable.Core
     open Fable.Core.JsInterop
 
@@ -95,10 +94,10 @@ module JsMediaTags =
 
     let read (path: string) =
         Promise.create (fun resolve reject ->
-
             let reader = jsMediaTags.Reader(path)
             reader.Read(Callbacks(resolve, reject)))
 
     let readTags (path: string) (tags: string []) =
         Promise.create (fun resolve reject ->            
-            jsMediaTags.Reader(path).SetTagsToRead(tags).Read(Callbacks(resolve, reject)))
+            let reader = jsMediaTags.Reader(path)
+            reader.SetTagsToRead(tags).Read(Callbacks(resolve, reject)))
