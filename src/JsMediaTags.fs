@@ -33,6 +33,32 @@ module JsMediaTags =
     open Fable.Core
     open Fable.Core.JsInterop
 
+    type IPicture =
+        [<Emit("$0.data")>]
+        abstract Data: byte[]
+        [<Emit("$0.description")>]
+        abstract Description: string
+        [<Emit("$0.format")>]
+        abstract Format: string
+        [<Emit("$0.type")>]
+        abstract Type: string
+
+    type ITags =
+        [<Emit("$0.artist")>]
+        abstract Artist: string
+        [<Emit("$0.album")>]
+        abstract Album: string
+        [<Emit("$0.title")>]
+        abstract Title: string
+        [<Emit("$0.track")>]
+        abstract Track: string
+        [<Emit("$0.genre")>]
+        abstract Genre: string
+        [<Emit("$0.year")>]
+        abstract Year: string
+        [<Emit("$0.picture")>]
+        abstract Picture: IPicture
+
     type ITag =
         [<Emit("$0.type")>]
         abstract Type: string
@@ -44,6 +70,8 @@ module JsMediaTags =
         abstract Revision: int32
         [<Emit("$0.size")>]
         abstract Size: int32
+        [<Emit("$0.tags")>]
+        abstract Tags: ITags
 
     type private Callbacks(onSuccess: ITag -> unit, onError: exn -> unit) =
         [<Emit("$0.onSuccess")>]
@@ -60,13 +88,17 @@ module JsMediaTags =
         abstract SetTagsToRead: string [] -> IReader
 
     type private IJsMediaTags =
+        [<Emit("new $0.Reader($1)")>]
         abstract Reader: string -> IReader
 
     let private jsMediaTags: IJsMediaTags = importDefault "jsmediatags"
 
-    let readAll (path: string) =
-        Promise.create (fun resolve reject -> jsMediaTags.Reader(path).Read(Callbacks(resolve, reject)))
+    let read (path: string) =
+        Promise.create (fun resolve reject ->
+
+            let reader = jsMediaTags.Reader(path)
+            reader.Read(Callbacks(resolve, reject)))
 
     let readTags (path: string) (tags: string []) =
-        Promise.create (fun resolve reject ->
+        Promise.create (fun resolve reject ->            
             jsMediaTags.Reader(path).SetTagsToRead(tags).Read(Callbacks(resolve, reject)))
