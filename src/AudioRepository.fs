@@ -69,7 +69,8 @@ let private initTrackTable (tx: ISqLiteTransaction) =
     TrackNumber INTEGER,
     Duration INTEGER,
     Filename TEXT,
-    DirectoryId INTEGER)"
+    DirectoryId INTEGER,
+    LastModified INTEGER)"
     |> Promise.map (fun () -> debug "initalized Track table")
 
 let private initTables (db: ISqLiteDatabase) =
