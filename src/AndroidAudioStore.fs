@@ -32,45 +32,66 @@ module AndroidAudioStore =
     open Fable.Core
     open Fable.Core.JsInterop
 
-    type GetAllOptions =
-        { [<Emit("$0.id")>]
-          Id: bool
-          [<Emit("$0.blured")>]
-          Blured: bool
-          [<Emit("$0.artist")>]
-          Artist: bool
-          [<Emit("$0.duration")>]
-          Duration: bool
-          [<Emit("$0.cover")>]
-          Cover: bool
-          [<Emit("$0.genre")>]
-          Genre: bool
-          [<Emit("$0.title")>]
-          Title: bool
-          [<Emit("$0.minimumSongDuration")>]
-          MinimumSongDuration: uint32 }
+    type GetAllOptions(?id: bool,
+                       ?blured: bool,
+                       ?artist: bool,
+                       ?duration: bool,
+                       ?cover: bool,
+                       ?genre: bool,
+                       ?title: bool,
+                       ?minimumSongDuration: uint32) =
+        [<Emit("$0.id")>]
+        member __.Id: bool = defaultArg id false
 
-    type Track =
-        { [<Emit("$0.id")>]
-          Id: string
-          [<Emit("$0.title")>]
-          Title: string
-          [<Emit("$0.author")>]
-          Author: string
-          [<Emit("$0.album")>]
-          Album: string
-          [<Emit("$0.genre")>]
-          Genre: string
-          [<Emit("$0.duration")>]
-          Duration: string
-          [<Emit("$0.cover")>]
-          Cover: string
-          [<Emit("$0.path")>]
-          Path: string }
+        [<Emit("$0.blured")>]
+        member __.Blured: bool = defaultArg blured false
+
+        [<Emit("$0.artist")>]
+        member __.Artist: bool = defaultArg artist false
+
+        [<Emit("$0.duration")>]
+        member __.Duration: bool = defaultArg duration false
+
+        [<Emit("$0.cover")>]
+        member __.Cover: bool = defaultArg cover false
+
+        [<Emit("$0.genre")>]
+        member __.Genre: bool = defaultArg genre false
+
+        [<Emit("$0.title")>]
+        member __.Title: bool = defaultArg title false
+
+        [<Emit("$0.minimumSongDuration")>]
+        member __.MinimumSongDuration: uint32 = defaultArg minimumSongDuration 10u
+
+    type ITrack =
+        [<Emit("$0.id")>]
+        abstract Id: string
+
+        [<Emit("$0.title")>]
+        abstract Title: string
+
+        [<Emit("$0.author")>]
+        abstract Author: string
+
+        [<Emit("$0.album")>]
+        abstract Album: string
+
+        [<Emit("$0.genre")>]
+        abstract Genre: string
+
+        [<Emit("$0.duration")>]
+        abstract Duration: string
+
+        [<Emit("$0.cover")>]
+        abstract Cover: string
+
+        [<Emit("$0.path")>]
+        abstract Path: string
 
     type private IMusicFiles =
         [<Emit("$0.getAll($1)")>]
-        abstract GetAll: GetAllOptions -> JS.Promise<Track []>
+        abstract GetAll: GetAllOptions -> JS.Promise<ITrack []>
 
     let private reactNativeGetMusicFiles: IMusicFiles =
         importDefault "react-native-get-music-files"

@@ -80,15 +80,7 @@ let private initTables (db: ISqLiteDatabase) =
         initTrackTable tx)
 
 let findAllAudioFiles () =
-    getAll
-        { Id = false
-          Blured = false
-          Artist = false
-          Duration = false
-          Cover = false
-          Genre = false
-          Title = false
-          MinimumSongDuration = 10u }
+    getAll (GetAllOptions())
     |> Promise.map (fun tracks ->
         tracks
         |> Array.map (fun track -> track.Path)
