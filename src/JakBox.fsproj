@@ -5,6 +5,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Fable.ReactNativeFileSystem.fs" />
     <Compile Include="Permissions.fs" />
     <Compile Include="AndroidAudioStore.fs" />
     <Compile Include="SqLiteStorage.fs" />
