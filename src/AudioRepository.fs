@@ -34,6 +34,7 @@ open Fable.Import.ReactNative.SqLiteStorage
 open Fable.ReactNative.SqLiteStorage
 open Fable.ReactNative.SqLiteStorageExtensions
 open Fable.ReactNative
+open Fable.ReactNativeFileSystem
 
 type AudioRepo =
     { Database: ISqLiteDatabase
@@ -100,6 +101,8 @@ let openRepo (dbName: string) =
 let closeRepo (repo: AudioRepo) =
     repo.Database.CloseDatabase()
     debug "closed repo database %s" repo.DbName
+
+let statList (paths: string list) = paths |> List.map stat |> Promise.all
 
 let updateRepo (repo: AudioRepo) =
     findAllAudioFiles ()
