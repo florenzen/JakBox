@@ -81,17 +81,17 @@ let private initTables (db: ISqLiteDatabase) =
 
 let findAllAudioFiles () =
     getAll
-        { id = false
-          blured = false
-          artist = false
-          duration = false
-          cover = false
-          genre = false
-          title = false
-          minimumSongDuration = 10u }
+        { Id = false
+          Blured = false
+          Artist = false
+          Duration = false
+          Cover = false
+          Genre = false
+          Title = false
+          MinimumSongDuration = 10u }
     |> Promise.map (fun tracks ->
         tracks
-        |> Array.map (fun track -> track.path)
+        |> Array.map (fun track -> track.Path)
         |> List.ofArray)
 
 let openRepo (dbName: string) =
