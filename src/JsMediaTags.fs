@@ -92,12 +92,35 @@ module JsMediaTags =
 
     let private jsMediaTags: IJsMediaTags = importDefault "jsmediatags"
 
+    type Tag =
+        | Title
+        | Artist
+        | Album
+        | Year
+        | Comment
+        | Track
+        | Genre
+        | Picture
+        | Lyrics
+        override this.ToString() =
+            match this with
+            | Title -> "title"
+            | Artist -> "artist"
+            | Album -> "album"
+            | Year -> "year"
+            | Comment -> "comment"
+            | Track -> "track"
+            | Genre -> "genre"
+            | Picture -> "picture"
+            | Lyrics -> "lyrics"
+
     let read (path: string) =
         Promise.create (fun resolve reject ->
             let reader = jsMediaTags.Reader(path)
             reader.Read(Callbacks(resolve, reject)))
 
-    let readTags (path: string) (tags: string []) =
+    let readTags (path: string) (tags: seq<Tag>) =
         Promise.create (fun resolve reject ->            
             let reader = jsMediaTags.Reader(path)
-            reader.SetTagsToRead(tags).Read(Callbacks(resolve, reject)))
+            let tagStrings = tags |> Seq.map (fun tag -> tag.ToString()) |> Seq.toArray
+            reader.SetTagsToRead(tagStrings).Read(Callbacks(resolve, reject)))
