@@ -34,41 +34,55 @@ module JsMediaTags =
 
     type IPicture =
         [<Emit("$0.data")>]
-        abstract Data: byte[]
+        abstract Data: byte []
+
         [<Emit("$0.description")>]
         abstract Description: string
+
         [<Emit("$0.format")>]
         abstract Format: string
+
         [<Emit("$0.type")>]
         abstract Type: string
 
     type ITags =
         [<Emit("$0.artist")>]
         abstract Artist: string
+
         [<Emit("$0.album")>]
         abstract Album: string
+
         [<Emit("$0.title")>]
         abstract Title: string
+
         [<Emit("$0.track")>]
         abstract Track: string
+
         [<Emit("$0.genre")>]
         abstract Genre: string
+
         [<Emit("$0.year")>]
         abstract Year: string
+
         [<Emit("$0.picture")>]
         abstract Picture: IPicture
 
     type ITag =
         [<Emit("$0.type")>]
         abstract Type: string
+
         [<Emit("$0.version")>]
         abstract Version: string
+
         [<Emit("$0.major")>]
         abstract Major: int32
+
         [<Emit("$0.revision")>]
         abstract Revision: int32
+
         [<Emit("$0.size")>]
         abstract Size: int32
+
         [<Emit("$0.tags")>]
         abstract Tags: ITags
 
@@ -120,7 +134,12 @@ module JsMediaTags =
             reader.Read(Callbacks(resolve, reject)))
 
     let readTags (path: string) (tags: seq<Tag>) =
-        Promise.create (fun resolve reject ->            
+        Promise.create (fun resolve reject ->
             let reader = jsMediaTags.Reader(path)
-            let tagStrings = tags |> Seq.map (fun tag -> tag.ToString()) |> Seq.toArray
+
+            let tagStrings =
+                tags
+                |> Seq.map (fun tag -> tag.ToString())
+                |> Seq.toArray
+
             reader.SetTagsToRead(tagStrings).Read(Callbacks(resolve, reject)))
