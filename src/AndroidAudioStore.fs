@@ -32,34 +32,47 @@ module AndroidAudioStore =
     open Fable.Core
     open Fable.Core.JsInterop
 
-    // fsharplint:disable RecordFieldNames
     type GetAllOptions =
-        { id: bool
-          blured: bool
-          artist: bool
-          duration: bool
-          cover: bool
-          genre: bool
-          title: bool
-          minimumSongDuration: uint32 }
+        { [<Emit("$0.id")>]
+          Id: bool
+          [<Emit("$0.blured")>]
+          Blured: bool
+          [<Emit("$0.artist")>]
+          Artist: bool
+          [<Emit("$0.duration")>]
+          Duration: bool
+          [<Emit("$0.cover")>]
+          Cover: bool
+          [<Emit("$0.genre")>]
+          Genre: bool
+          [<Emit("$0.title")>]
+          Title: bool
+          [<Emit("$0.minimumSongDuration")>]
+          MinimumSongDuration: uint32 }
 
     type Track =
-        { id: string
-          title: string
-          author: string
-          album: string
-          genre: string
-          duration: string
-          cover: string
-          path: string }
-    // fsharplint:enable RecordFieldNames
+        { [<Emit("$0.id")>]
+          Id: string
+          [<Emit("$0.title")>]
+          Title: string
+          [<Emit("$0.author")>]
+          Author: string
+          [<Emit("$0.album")>]
+          Album: string
+          [<Emit("$0.genre")>]
+          Genre: string
+          [<Emit("$0.duration")>]
+          Duration: string
+          [<Emit("$0.cover")>]
+          Cover: string
+          [<Emit("$0.path")>]
+          Path: string }
 
     type private IMusicFiles =
-        // fsharplint:disable MemberNames
-        abstract getAll: GetAllOptions -> JS.Promise<Track []>
-    // fsharplint:enable MemberNames
+        [<Emit("$0.getAll($1)")>]
+        abstract GetAll: GetAllOptions -> JS.Promise<Track []>
 
     let private reactNativeGetMusicFiles: IMusicFiles =
         importDefault "react-native-get-music-files"
 
-    let getAll (options: GetAllOptions) = reactNativeGetMusicFiles.getAll options
+    let getAll (options: GetAllOptions) = reactNativeGetMusicFiles.GetAll options
