@@ -55,7 +55,8 @@ let private initArtistTable (tx: ISqLiteTransaction) =
 let private initAlbumTable (tx: ISqLiteTransaction) =
     tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Album (
     Id INTEGER PRIMARY KEY,
-    Name,
+    Name TEXT,
+    NumTrack INTEGER,
     ArtistId INTEGER,
     Cover BLOB)"
     |> Promise.map (fun () -> debug "initalized Album table")
@@ -65,6 +66,7 @@ let private initTrackTable (tx: ISqLiteTransaction) =
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     AlbumnId INTEGER,
+    TrackNumber INTEGER,
     Duration INTEGER,
     Filename TEXT,
     DirectoryId INTEGER)"
