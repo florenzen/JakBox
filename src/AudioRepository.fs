@@ -43,13 +43,15 @@ let private initDirectoryTable (tx: ISqLiteTransaction) =
     tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Directory (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
-    DirectoryId INTEGER)" |> ignore
+    DirectoryId INTEGER)"
+    |> ignore
     debug "initalized Directory table"
 
 let private initArtistTable (tx: ISqLiteTransaction) =
     tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Artist (
     Id INTEGER PRIMARY KEY,
-    Name TEXT)" |> ignore
+    Name TEXT)"
+    |> ignore
     debug "initalized Artist table"
 
 let private initAlbumTable (tx: ISqLiteTransaction) =
@@ -58,7 +60,8 @@ let private initAlbumTable (tx: ISqLiteTransaction) =
     Name TEXT,
     NumTrack INTEGER,
     ArtistId INTEGER,
-    Cover BLOB)" |> ignore
+    Cover BLOB)"
+    |> ignore
     debug "initalized Album table"
 
 let private initTrackTable (tx: ISqLiteTransaction) =
@@ -70,7 +73,8 @@ let private initTrackTable (tx: ISqLiteTransaction) =
     Duration INTEGER,
     Filename TEXT,
     DirectoryId INTEGER,
-    LastModified INTEGER)" |> ignore
+    LastModified INTEGER)"
+    |> ignore
     debug "initalized Track table"
 
 let private initTables (db: ISqLiteDatabase) =
