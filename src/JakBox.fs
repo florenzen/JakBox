@@ -35,7 +35,6 @@ open Fable.ReactNative
 
 open Utils
 open Fable.Import.ReactNative.SqLiteStorage
-open Fable.ReactNative.SqLiteStorageExtensions
 open Fable.Core
 open Fable.Core.JsInterop
 
@@ -81,30 +80,30 @@ let findAllAudioFiles () =
 // let sqLite: ISqLite =
 //     importDefault "react-native-sqlite-storage"
 
-let tfun (tx: ISqLiteTransaction): JS.Promise<unit> =
-    tx.ExecuteNonQuery("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)")
-    tx.ExecuteNonQuery("INSERT INTO Foo (Id, Name) VALUES (1, 'one111')")
-    tx.ExecuteQuery("SELECT * FROM Foo")
-    |> Promise.map (fun r ->
-        // |> Promise.bind (fun r2 ->
-        printfn "foo %O" (r.Rows.Item(4))?Name
-        printfn "len %O" (r.Rows.Length))
+// let tfun (tx: ISqLiteTransaction): JS.Promise<unit> =
+//     tx.ExecuteNonQuery("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)")
+//     tx.ExecuteNonQuery("INSERT INTO Foo (Id, Name) VALUES (1, 'one111')")
+//     tx.ExecuteQuery("SELECT * FROM Foo")
+//     |> Promise.map (fun r ->
+//         // |> Promise.bind (fun r2 ->
+//         printfn "foo %O" (r.Rows.Item(4))?Name
+//         printfn "len %O" (r.Rows.Length))
 
-let interactWithSqLite () =
-    // sqLite.EnablePromise (true)
+// let interactWithSqLite () =
+//     // sqLite.EnablePromise (true)
 
-    // sqLite.Debug(true)
-    SqLiteStorage.openDatabase "repo.sqlite"
-    |> Promise.bind (fun db -> db.Transaction tfun)
+//     // sqLite.Debug(true)
+//     SqLiteStorage.openDatabase "repo.sqlite"
+//     |> Promise.bind (fun db -> db.Transaction tfun)
 
-    // |> Promise.bind (fun rows2 ->
-    //     tx.ExecuteSql ("SELECT * FROM Foo", [||])
-    //     |> Promise.bind (fun r4 ->
-    //         printfn "bar %O" (r4.[1].Rows.Item(1)?Id)
-    //         Promise.lift ())))))
+//     // |> Promise.bind (fun rows2 ->
+//     //     tx.ExecuteSql ("SELECT * FROM Foo", [||])
+//     //     |> Promise.bind (fun r4 ->
+//     //         printfn "bar %O" (r4.[1].Rows.Item(1)?Id)
+//     //         Promise.lift ())))))
 
-    |> Promise.bind (fun r2 -> Promise.lift (InteractWithSqLiteResult(sprintf "finished with SQLite")))
-//.Length.ToString())
+//     |> Promise.bind (fun r2 -> Promise.lift (InteractWithSqLiteResult(sprintf "finished with SQLite")))
+// //.Length.ToString())
 
 
 
