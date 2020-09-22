@@ -30,64 +30,40 @@ module AudioRepository
 
 open Utils
 open Fable.ReactNative.AndroidAudioStore
-//open Fable.Import.ReactNative.SqLiteStorage
-//open Fable.ReactNative.SqLiteStorage
-//open Fable.ReactNative.SqLiteStorageExtensions
-open Fable.Core
-open Fable.ReactNativeSqlite
+open Fable.Import.ReactNative.SqLiteStorage
+open Fable.ReactNative.SqLiteStorage
+open Fable.ReactNative.SqLiteStorageExtensions
 open Fable.ReactNative
 open Fable.ReactNativeFileSystem
 
-type private DbParams(name: string,
-                      ?location: Location,
-                      ?createFromLocation: U2<float, string> option,
-                      ?key: string option,
-                      ?readOnly: bool option) =
-    interface DatabaseParams with
-        member val createFromLocation: U2<float, string> option = defaultArg createFromLocation None with get, set
-        member val key: string option = defaultArg key None with get, set
-        member val readOnly: bool option = defaultArg readOnly None with get, set
-        member val name: string = name with get, set
-        member val location: Location = defaultArg location Location.Default with get, set
-
 type AudioRepo =
-    { Database: SQLiteDatabase
+    { Database: ISqLiteDatabase
       DbName: string }
 
-let private initDirectoryTable (tx: Transaction) =
-    let result =
-        tx.executeSql "CREATE TABLE IF NOT EXISTS Directory (
+let private initDirectoryTable (tx: ISqLiteTransaction) =
+    tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Directory (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     DirectoryId INTEGER)"
+    |> Promise.map (fun () -> debug "initalized Directory table")
 
-    debug "initalized Directory table"
-    result
-
-let private initArtistTable (tx: Transaction) =
-    let result =
-        tx.executeSql "CREATE TABLE IF NOT EXISTS Artist (
+let private initArtistTable (tx: ISqLiteTransaction) =
+    tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Artist (
     Id INTEGER PRIMARY KEY,
     Name TEXT)"
+    |> Promise.map (fun () -> debug "initalized Artist table")
 
-    debug "initalized Artist table"
-    result
-
-let private initAlbumTable (tx: Transaction) =
-    let result =
-        tx.executeSql "CREATE TABLE IF NOT EXISTS Album (
+let private initAlbumTable (tx: ISqLiteTransaction) =
+    tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Album (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     NumTrack INTEGER,
     ArtistId INTEGER,
     Cover BLOB)"
+    |> Promise.map (fun () -> debug "initalized Album table")
 
-    debug "initalized Album table"
-    result
-
-let private initTrackTable (tx: Transaction) =
-    let result =
-        tx.executeSql "CREATE TABLE IF NOT EXISTS Track (
+let private initTrackTable (tx: ISqLiteTransaction) =
+    tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Track (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     AlbumnId INTEGER,
@@ -96,16 +72,14 @@ let private initTrackTable (tx: Transaction) =
     Filename TEXT,
     DirectoryId INTEGER,
     LastModified INTEGER)"
+    |> Promise.map (fun () -> debug "initalized Track table")
 
-    debug "initalized Track table"
-    result
-
-let private initTables (db: SQLiteDatabase) =
-    db.transaction (fun tx ->
+let private initTables (db: ISqLiteDatabase) =
+    db.Transaction(fun tx ->
         initDirectoryTable tx |> ignore
         initArtistTable tx |> ignore
         initAlbumTable tx |> ignore
-        initTrackTable tx |> ignore)
+        initTrackTable tx)
 
 let findAllAudioFiles () =
     getAll (GetAllOptions())
@@ -115,15 +89,18 @@ let findAllAudioFiles () =
         |> List.ofArray)
 
 let openRepo (dbName: string) =
-    SQLite.openDatabase (DbParams(dbName))
+#if DEBUG
+    setDebugMode true
+#endif
+    openDatabase dbName
     |> Promise.bind (fun db ->
         debug "opened repo database %s" dbName
         initTables db
-        |> Promise.map (fun _ -> { Database = db; DbName = dbName }))
+        |> Promise.map (fun () -> { Database = db; DbName = dbName }))
 
 let closeRepo (repo: AudioRepo) =
-    repo.Database.close ()
-    |> Promise.map (fun () -> debug "closed repo database %s" repo.DbName)
+    repo.Database.CloseDatabase()
+    debug "closed repo database %s" repo.DbName
 
 let statList (paths: string list) = paths |> List.map stat |> Promise.all
 
@@ -138,8 +115,3 @@ let updateRepo (repo: AudioRepo) =
             |> Promise.bind (fun stat ->
                 debug "size: %i, mtime: %s, ctime: %s" stat.Size (stat.Mtime.ToString()) (stat.Ctime.ToString())
                 Promise.lift repo)))
-
-SQLite.enablePromise true
-#if DEBUG
-SQLite.DEBUG true
-#endif
