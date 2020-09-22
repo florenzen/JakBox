@@ -77,6 +77,13 @@ let private initTrackTable (tx: ISqLiteTransaction) =
     |> ignore
     debug "initalized Track table"
 
+let private int option findTrackByPath (tx: ISqLiteTransaction) (path: string) =
+    let parts = path.Split("/")
+    let filename = Seq.last parts
+    let directories = Seq.take (parts.Length - 1) parts
+    let (_, result) = tx.ExecuteSql("SELECT Id, Directory FROM Track WHERE Filename = ?", [|filename|])
+    if result.Rows.Length = 0 then None else 
+
 let private initTables (db: ISqLiteDatabase) =
     db.Transaction(fun tx ->
         initDirectoryTable tx
