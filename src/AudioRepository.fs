@@ -32,7 +32,6 @@ open Utils
 open Fable.ReactNative.AndroidAudioStore
 open Fable.Import.ReactNative.SqLiteStorage
 open Fable.ReactNative.SqLiteStorage
-open Fable.ReactNative.SqLiteStorageExtensions
 open Fable.ReactNative
 open Fable.ReactNativeFileSystem
 
@@ -41,29 +40,29 @@ type AudioRepo =
       DbName: string }
 
 let private initDirectoryTable (tx: ISqLiteTransaction) =
-    tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Directory (
+    tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Directory (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
-    DirectoryId INTEGER)"
-    |> Promise.map (fun () -> debug "initalized Directory table")
+    DirectoryId INTEGER)" |> ignore
+    debug "initalized Directory table"
 
 let private initArtistTable (tx: ISqLiteTransaction) =
-    tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Artist (
+    tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Artist (
     Id INTEGER PRIMARY KEY,
-    Name TEXT)"
-    |> Promise.map (fun () -> debug "initalized Artist table")
+    Name TEXT)" |> ignore
+    debug "initalized Artist table"
 
 let private initAlbumTable (tx: ISqLiteTransaction) =
-    tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Album (
+    tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Album (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     NumTrack INTEGER,
     ArtistId INTEGER,
-    Cover BLOB)"
-    |> Promise.map (fun () -> debug "initalized Album table")
+    Cover BLOB)" |> ignore
+    debug "initalized Album table"
 
 let private initTrackTable (tx: ISqLiteTransaction) =
-    tx.ExecuteNonQuery "CREATE TABLE IF NOT EXISTS Track (
+    tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Track (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     AlbumnId INTEGER,
@@ -71,14 +70,14 @@ let private initTrackTable (tx: ISqLiteTransaction) =
     Duration INTEGER,
     Filename TEXT,
     DirectoryId INTEGER,
-    LastModified INTEGER)"
-    |> Promise.map (fun () -> debug "initalized Track table")
+    LastModified INTEGER)" |> ignore
+    debug "initalized Track table"
 
 let private initTables (db: ISqLiteDatabase) =
     db.Transaction(fun tx ->
-        initDirectoryTable tx |> ignore
-        initArtistTable tx |> ignore
-        initAlbumTable tx |> ignore
+        initDirectoryTable tx
+        initArtistTable tx
+        initAlbumTable tx
         initTrackTable tx)
 
 let findAllAudioFiles () =
@@ -96,11 +95,11 @@ let openRepo (dbName: string) =
     |> Promise.bind (fun db ->
         debug "opened repo database %s" dbName
         initTables db
-        |> Promise.map (fun () -> { Database = db; DbName = dbName }))
+        |> Promise.map (fun _ -> { Database = db; DbName = dbName }))
 
 let closeRepo (repo: AudioRepo) =
-    repo.Database.CloseDatabase()
-    debug "closed repo database %s" repo.DbName
+    repo.Database.Close()
+    |> Promise.map (fun () -> debug "closed repo database %s" repo.DbName)
 
 let statList (paths: string list) = paths |> List.map stat |> Promise.all
 
