@@ -43,17 +43,17 @@ type ISqlResult =
 
 type ISqLiteTransaction =
     [<Emit("$0.executeSql($1, $2)")>]
-    abstract ExecuteSql: string * obj [] -> JS.Promise<obj []>
+    abstract ExecuteSql: string * ?args: obj [] -> ISqLiteTransaction * ISqlResult
 
 type ISqLiteDatabase =
-    [<Emit("$0.closeDatabase")>]
-    abstract CloseDatabase: unit -> unit
+    [<Emit("$0.close($1)")>]
+    abstract Close: unit -> JS.Promise<unit>
 
     [<Emit("$0.transaction($1)")>]
-    abstract Transaction: (ISqLiteTransaction -> JS.Promise<unit>) -> JS.Promise<unit>
+    abstract Transaction: (ISqLiteTransaction -> unit) -> JS.Promise<ISqLiteTransaction>
 
     [<Emit("$0.executeSql($1, $2)")>]
-    abstract ExecuteSql: string * obj [] -> JS.Promise<obj []>
+    abstract ExecuteSql: string * ?args: obj [] -> JS.Promise<obj []>
 
 type ISqLite =
     [<Emit("$0.openDatabase($1)")>]
@@ -68,7 +68,6 @@ type ISqLite =
 namespace Fable.ReactNative
 
 open Fable.Import.ReactNative.SqLiteStorage
-open Fable.Core
 open Fable.Core.JsInterop
 
 module SqLiteStorage =
@@ -80,15 +79,3 @@ module SqLiteStorage =
     let setDebugMode (enable: bool) = sqLite.Debug enable
 
     sqLite.EnablePromise true
-
-module SqLiteStorageExtensions =
-    type ISqLiteTransaction with
-        member tx.ExecuteQuery(query: string, ?args: obj []): JS.Promise<ISqlResult> =
-            let realArgs = defaultArg args Array.empty
-            tx.ExecuteSql(query, realArgs)
-            |> Promise.map (fun results -> results.[1] :?> ISqlResult)
-
-        member tx.ExecuteNonQuery(statement: string, ?args: obj []): JS.Promise<unit> =
-            let realArgs = defaultArg args Array.empty
-            tx.ExecuteSql(statement, realArgs)
-            |> Promise.map ignore
