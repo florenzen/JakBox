@@ -30,39 +30,39 @@ namespace Fable.Import.ReactNative.SqLiteStorage
 
 open Fable.Core
 
-type ISqlRows =
-    [<Emit("$0.item($1)")>]
+type ISqLiteRows =
+    [<Emit "$0.item($1)">]
     abstract Item: int32 -> obj
 
-    [<Emit("$0.length")>]
+    [<Emit "$0.length">]
     abstract Length: int32
 
-type ISqlResult =
-    [<Emit("$0.rows")>]
-    abstract Rows: ISqlRows
+type ISqLiteResult =
+    [<Emit "$0.rows">]
+    abstract Rows: ISqLiteRows
 
 type ISqLiteTransaction =
-    [<Emit("$0.executeSql($1, $2)")>]
-    abstract ExecuteSql: string * ?args: obj [] -> ISqLiteTransaction * ISqlResult
+    [<Emit "$0.executeSql($1, $2)">]
+    abstract ExecuteSql: string * ?args: obj [] -> ISqLiteTransaction * ISqLiteResult
 
 type ISqLiteDatabase =
-    [<Emit("$0.close($1)")>]
+    [<Emit "$0.close($1)">]
     abstract Close: unit -> JS.Promise<unit>
 
-    [<Emit("$0.transaction($1)")>]
+    [<Emit "$0.transaction($1)">]
     abstract Transaction: (ISqLiteTransaction -> unit) -> JS.Promise<ISqLiteTransaction>
 
-    [<Emit("$0.executeSql($1, $2)")>]
+    [<Emit "$0.executeSql($1, $2)">]
     abstract ExecuteSql: string * ?args: obj [] -> JS.Promise<obj []>
 
 type ISqLite =
-    [<Emit("$0.openDatabase($1)")>]
+    [<Emit "$0.openDatabase($1)">]
     abstract OpenDatabase: string -> JS.Promise<ISqLiteDatabase>
 
-    [<Emit("$0.enablePromise($1)")>]
+    [<Emit "$0.enablePromise($1)">]
     abstract EnablePromise: bool -> unit
 
-    [<Emit("$0.DEBUG($1)")>]
+    [<Emit "$0.DEBUG($1)">]
     abstract Debug: bool -> unit
 
 namespace Fable.ReactNative
