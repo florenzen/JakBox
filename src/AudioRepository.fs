@@ -129,5 +129,10 @@ let updateRepo (repo: AudioRepo) =
             debug "ID3: %s %s %s" id3.Tags.Artist id3.Tags.Album id3.Tags.Title
             stat path
             |> Promise.bind (fun stat ->
-                debug "size: %i, mtime: %s, ctime: %s" stat.Size (stat.Mtime.ToString()) (stat.Ctime.ToString())
+                debug
+                    "path: %s, size: %i, mtime: %s, ctime: %s"
+                    path
+                    stat.Size
+                    (stat.Mtime.ToString())
+                    (stat.Ctime.ToString())
                 Promise.lift repo)))
