@@ -92,13 +92,18 @@ let private initTables (db: ISqLiteDatabase) =
         initAlbumTable tx
         initTrackTable tx)
 
-let findAllAudioFiles (rootDirectoryPaths: seq<string>) =
+let findAllAudioFilesWithModificationTime (rootDirectoryPaths: seq<string>) =
     getAll (GetAllOptions())
-    |> Promise.map (fun tracks ->
+    |> Promise.bind (fun tracks ->
         tracks
         |> Array.map (fun track -> track.Path)
         |> Array.filter (fun path -> Seq.exists (Path.isSubPath path) rootDirectoryPaths)
-        |> List.ofArray)
+        |> Array.map (fun path -> stat path |> Promise.map (fun statResult -> (path, statResult)))
+        |> Promise.Parallel
+        |> Promise.map (fun results -> 
+            results
+            |> Array.map (fun (path, statResult) -> (path, statResult.Mtime))
+            |> List.ofArray))
 
 let openRepo (dbName: string) (rootDirectoryPaths: seq<string>) =
     assert (Seq.forall Path.isAbsolute rootDirectoryPaths)
@@ -121,9 +126,9 @@ let closeRepo (repo: AudioRepo) =
 let statList (paths: string list) = paths |> List.map stat |> Promise.all
 
 let updateRepo (repo: AudioRepo) =
-    findAllAudioFiles repo.RootDirectoryPaths
-    |> Promise.bind (fun paths ->
-        let path = List.head paths
+    findAllAudioFilesWithModificationTime repo.RootDirectoryPaths
+    |> Promise.bind (fun pathsAndModTimes ->
+        let (path, modTime) = List.head pathsAndModTimes
         JsMediaTags.read path
         |> Promise.bind (fun id3 ->
             debug "ID3: %s %s %s" id3.Tags.Artist id3.Tags.Album id3.Tags.Title
