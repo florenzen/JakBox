@@ -11,6 +11,7 @@
     <Compile Include="SqLiteStorage.fs" />
     <Compile Include="JsMediaTags.fs" />
     <Compile Include="Utils.fs" />
+    <Compile Include="Path.fs" />
     <Compile Include="AudioRepository.fs" />
     <Compile Include="JakBox.fs" />
   </ItemGroup>
