@@ -26,5 +26,8 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-module Path =
-    let isAbsolute (path: string) = path.StartsWith "/"
+module Path
+
+let isAbsolute (path: string) = path.StartsWith "/"
+
+let isSubPath (subPath: string) (superPath: string) = subPath.StartsWith superPath

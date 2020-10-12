@@ -37,6 +37,7 @@ open Fable.ReactNativeFileSystem
 
 type AudioRepo =
     { Database: ISqLiteDatabase
+      RootDirectoryPaths: seq<string>
       DbName: string }
 
 let private initDirectoryTable (tx: ISqLiteTransaction) =
@@ -77,12 +78,12 @@ let private initTrackTable (tx: ISqLiteTransaction) =
     |> ignore
     debug "initalized Track table"
 
-let private int option findTrackByPath (tx: ISqLiteTransaction) (path: string) =
-    let parts = path.Split("/")
-    let filename = Seq.last parts
-    let directories = Seq.take (parts.Length - 1) parts
-    let (_, result) = tx.ExecuteSql("SELECT Id, Directory FROM Track WHERE Filename = ?", [|filename|])
-    if result.Rows.Length = 0 then None else 
+// let private int option findTrackByPath (tx: ISqLiteTransaction) (path: string) =
+//     let parts = path.Split("/")
+//     let filename = Seq.last parts
+//     let directories = Seq.take (parts.Length - 1) parts
+//     let (_, result) = tx.ExecuteSql("SELECT Id, Directory FROM Track WHERE Filename = ?", [|filename|])
+//     if result.Rows.Length = 0 then None else
 
 let private initTables (db: ISqLiteDatabase) =
     db.Transaction(fun tx ->
@@ -91,14 +92,16 @@ let private initTables (db: ISqLiteDatabase) =
         initAlbumTable tx
         initTrackTable tx)
 
-let findAllAudioFiles () =
+let findAllAudioFiles (rootDirectoryPaths: seq<string>) =
     getAll (GetAllOptions())
     |> Promise.map (fun tracks ->
         tracks
         |> Array.map (fun track -> track.Path)
+        |> Array.filter (fun path -> Seq.exists (Path.isSubPath path) rootDirectoryPaths)
         |> List.ofArray)
 
-let openRepo (dbName: string) =
+let openRepo (dbName: string) (rootDirectoryPaths: seq<string>) =
+    assert (Seq.forall Path.isAbsolute rootDirectoryPaths)
 #if DEBUG
     setDebugMode true
 #endif
@@ -106,7 +109,10 @@ let openRepo (dbName: string) =
     |> Promise.bind (fun db ->
         debug "opened repo database %s" dbName
         initTables db
-        |> Promise.map (fun _ -> { Database = db; DbName = dbName }))
+        |> Promise.map (fun _ ->
+            { Database = db
+              DbName = dbName
+              RootDirectoryPaths = rootDirectoryPaths }))
 
 let closeRepo (repo: AudioRepo) =
     repo.Database.Close()
@@ -115,13 +121,13 @@ let closeRepo (repo: AudioRepo) =
 let statList (paths: string list) = paths |> List.map stat |> Promise.all
 
 let updateRepo (repo: AudioRepo) =
-    findAllAudioFiles ()
+    findAllAudioFiles repo.RootDirectoryPaths
     |> Promise.bind (fun paths ->
         let path = List.head paths
         JsMediaTags.read path
         |> Promise.bind (fun id3 ->
             debug "ID3: %s %s %s" id3.Tags.Artist id3.Tags.Album id3.Tags.Title
-            Fable.ReactNativeFileSystem.ReactNativeFileSystem.stat path
+            stat path
             |> Promise.bind (fun stat ->
                 debug "size: %i, mtime: %s, ctime: %s" stat.Size (stat.Mtime.ToString()) (stat.Ctime.ToString())
                 Promise.lift repo)))
