@@ -31,3 +31,15 @@ module Path
 let isAbsolute (path: string) = path.StartsWith "/"
 
 let isSubPath (subPath: string) (superPath: string) = subPath.StartsWith superPath
+
+let filename (path: string) =
+    let parts = path.Split "/"
+    Seq.last parts
+
+let directories (path: string) =
+    let parts = path.Split "/"
+    Seq.take (parts.Length - 1) parts
+
+let splitFilename (path: string) =
+    let parts = path.Split "/"
+    (Seq.take (parts.Length - 1) parts, Seq.last parts)
