@@ -72,7 +72,7 @@ let findAllAudioFiles () =
     //       title = false
     //       minimumSongDuration = 10u }
     // |> Promise.map (fun t -> Array.map (fun (t1: AndroidAudioStore.Track) -> t1.path) t |> Array.toList |> FindAllAudioFilesResult)
-    AudioRepository.findAllAudioFiles ()
+    AudioRepository.findAllAudioFiles ["/"]
     |> Promise.map FindAllAudioFilesResult
 
 
@@ -128,11 +128,11 @@ let findAllAudioFiles () =
 //                 Promise.lift (InteractWithSqLiteResult "created table Foo")))))
 
 let interactWithAudioRepo () =
-    AudioRepository.openRepo "repo.sqlite"
+    AudioRepository.openRepo "repo.sqlite" ["/"]
     |> Promise.bind (fun repo ->
         AudioRepository.updateRepo repo
         |> Promise.bind (fun repo ->
-            AudioRepository.closeRepo repo
+            AudioRepository.closeRepo repo            
             Promise.lift (InteractWithSqLiteResult "finished with interacting with repo")))
 
 let init () =
