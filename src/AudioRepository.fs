@@ -41,6 +41,7 @@ type AudioRepo =
       DbName: string }
 
 let private initDirectoryTable (tx: ISqLiteTransaction) =
+    tx.ExecuteSql "DROP TABLE IF EXISTS Directory" |> ignore
     tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Directory (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
@@ -49,6 +50,7 @@ let private initDirectoryTable (tx: ISqLiteTransaction) =
     debug "initalized Directory table"
 
 let private initArtistTable (tx: ISqLiteTransaction) =
+    tx.ExecuteSql "DROP TABLE IF EXISTS Artist" |> ignore
     tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Artist (
     Id INTEGER PRIMARY KEY,
     Name TEXT)"
@@ -56,6 +58,7 @@ let private initArtistTable (tx: ISqLiteTransaction) =
     debug "initalized Artist table"
 
 let private initAlbumTable (tx: ISqLiteTransaction) =
+    tx.ExecuteSql "DROP TABLE IF EXISTS Album" |> ignore
     tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Album (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
@@ -66,6 +69,7 @@ let private initAlbumTable (tx: ISqLiteTransaction) =
     debug "initalized Album table"
 
 let private initTrackTable (tx: ISqLiteTransaction) =
+    tx.ExecuteSql "DROP TABLE IF EXISTS Track" |> ignore
     tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Track (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
