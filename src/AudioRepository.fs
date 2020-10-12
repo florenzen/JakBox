@@ -28,6 +28,7 @@
 
 module AudioRepository
 
+open System
 open Utils
 open Fable.ReactNative.AndroidAudioStore
 open Fable.Import.ReactNative.SqLiteStorage
@@ -40,8 +41,18 @@ type AudioRepo =
       RootDirectoryPaths: seq<string>
       DbName: string }
 
+type Track =
+    { Id: int32
+      Name: string
+      AlbumId: int32
+      TrackNumber:int32
+      Duration: TimeSpan
+      LastModified: DateTime
+      Path: string }
+
 let private initDirectoryTable (tx: ISqLiteTransaction) =
-    tx.ExecuteSql "DROP TABLE IF EXISTS Directory" |> ignore
+    tx.ExecuteSql "DROP TABLE IF EXISTS Directory"
+    |> ignore
     tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Directory (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
@@ -50,7 +61,8 @@ let private initDirectoryTable (tx: ISqLiteTransaction) =
     debug "initalized Directory table"
 
 let private initArtistTable (tx: ISqLiteTransaction) =
-    tx.ExecuteSql "DROP TABLE IF EXISTS Artist" |> ignore
+    tx.ExecuteSql "DROP TABLE IF EXISTS Artist"
+    |> ignore
     tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Artist (
     Id INTEGER PRIMARY KEY,
     Name TEXT)"
@@ -58,7 +70,8 @@ let private initArtistTable (tx: ISqLiteTransaction) =
     debug "initalized Artist table"
 
 let private initAlbumTable (tx: ISqLiteTransaction) =
-    tx.ExecuteSql "DROP TABLE IF EXISTS Album" |> ignore
+    tx.ExecuteSql "DROP TABLE IF EXISTS Album"
+    |> ignore
     tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Album (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
@@ -69,7 +82,8 @@ let private initAlbumTable (tx: ISqLiteTransaction) =
     debug "initalized Album table"
 
 let private initTrackTable (tx: ISqLiteTransaction) =
-    tx.ExecuteSql "DROP TABLE IF EXISTS Track" |> ignore
+    tx.ExecuteSql "DROP TABLE IF EXISTS Track"
+    |> ignore
     tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Track (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
@@ -82,12 +96,83 @@ let private initTrackTable (tx: ISqLiteTransaction) =
     |> ignore
     debug "initalized Track table"
 
-// let private int option findTrackByPath (tx: ISqLiteTransaction) (path: string) =
-//     let parts = path.Split("/")
-//     let filename = Seq.last parts
-//     let directories = Seq.take (parts.Length - 1) parts
-//     let (_, result) = tx.ExecuteSql("SELECT Id, Directory FROM Track WHERE Filename = ?", [|filename|])
-//     if result.Rows.Length = 0 then None else
+let private generateSelectForFilePath (path: string): string * string [] =
+    // path "/a/b/d/f2.mp3"
+    // SELECT t.Id, t.Name FROM Track t
+    // WHERE t.Name = 'f2.mp3'
+    // AND (SELECT d2.Name FROM Directory d2
+    //      WHERE d2.Id = t.DirectoryId
+    //      AND (SELECT d1.Name FROM Directory d1
+    //           WHERE d1.Id = d2.DirectoryId
+    //           AND (SELECT d0.Name FROM Directory d0
+    //                WHERE d0.Id = d1.DirectoryId
+    //                AND d0.DirectoryId IS NULL) = 'a') = 'b') = 'd';
+    let rec conditionsFromDirectories (directories: string list) (innerCondition: string) (index: int32) =
+        match directories with
+        | [] -> failwith "cannot be called on an empty list"
+        | [ directory ] ->
+            sprintf
+                "(SELECT d%i.Name FROM Directory d%i WHERE d%i.Id = t.DirectoryId AND %s) = ?"
+                index
+                index
+                index
+                innerCondition                
+        | directory :: directories ->
+            let condition =
+                sprintf
+                    "(SELECT d%i.Name FROM Directory d%i WHERE d%i.Id = d%i.DirectoryId AND %s) = ?"
+                    index
+                    index
+                    index
+                    (index + 1)
+                    innerCondition                    
+
+            conditionsFromDirectories directories condition (index + 1)
+
+    let (directories, filename) = Path.splitFilename path
+    let directoriesList = Seq.toList directories
+
+    let condFromDirectories =
+        match directoriesList with
+        | [] -> ""
+        | _ :: _ ->
+            "AND "
+            + conditionsFromDirectories directoriesList "d0.DirectoryId IS NULL" 0
+
+    ("SELECT t.Id, t.Name, AlbumId, TrackNumber, Duration, LastModified FROM Track t "
+     + "WHERE t.Name = ? "
+     + condFromDirectories
+     + " LIMIT 1",
+     Array.ofList (filename :: directoriesList))
+
+let private Track option findTrackByPath (tx: ISqLiteTransaction) (path: string) =
+    let (select, arguments) = generateSelectForFilePath path
+
+    let (_, result) = tx.ExecuteSql(select, arguments)
+    let rows = result.Rows
+    if rows.Length = 0 then
+        None
+    else
+        let row = rows.Item 0
+        let duration = TimeSpan.FromTicks(row?Duration)
+        let lastModified = DateTime.FromTicks(row?LastModified, DateTimeKind.Utc)
+        Some {Id = row?Id, Name=row?Name, AlbumId = row?AlbumId, TrackNumber = row?TrackNumber, Duration = duration, LastModified = lastModified}
+
+    
+
+    
+
+// dir1 dir2 dir3 dir4 fname
+// SELECT t.Id, t.Name FROM Track t
+// WHERE t.Filename = filename
+// AND (SELECT d4.Name FROM Directories d4
+//      WHERE d4.Id = t.DirectoryId
+//      AND (SELECT d3.Name FROM Directories d3
+//           WHERE d3.Id = d4.Id
+//           AND (SELECT d2.Name FROM Directoris d2) =
+//                ) = dir3) = dir4
+
+
 
 let private initTables (db: ISqLiteDatabase) =
     db.Transaction(fun tx ->
@@ -102,9 +187,11 @@ let findAllAudioFilesWithModificationTime (rootDirectoryPaths: seq<string>) =
         tracks
         |> Array.map (fun track -> track.Path)
         |> Array.filter (fun path -> Seq.exists (Path.isSubPath path) rootDirectoryPaths)
-        |> Array.map (fun path -> stat path |> Promise.map (fun statResult -> (path, statResult)))
+        |> Array.map (fun path ->
+            stat path
+            |> Promise.map (fun statResult -> (path, statResult)))
         |> Promise.Parallel
-        |> Promise.map (fun results -> 
+        |> Promise.map (fun results ->
             results
             |> Array.map (fun (path, statResult) -> (path, statResult.Mtime))
             |> List.ofArray))
