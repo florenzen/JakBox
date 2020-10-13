@@ -43,7 +43,7 @@ type ISqLiteResult =
 
 type ISqLiteTransaction =
     [<Emit "$0.executeSql($1, $2)">]
-    abstract ExecuteSql: string * ?args: obj [] -> ISqLiteTransaction * ISqLiteResult
+    abstract ExecuteSql: string * ?args: obj [] -> JS.Promise<ISqLiteTransaction * ISqLiteResult>
 
 type ISqLiteDatabase =
     [<Emit "$0.close($1)">]
