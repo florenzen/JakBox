@@ -61,7 +61,7 @@ let requestReadExternalStoragePermission () =
             debug "permission already granted"
             RequestPermissionResult result |> Promise.lift)
 
-let findAllAudioFiles () =
+// let findAllAudioFiles () =
     // AndroidAudioStore.getAll {
     //       id = false
     //       blured = false
@@ -72,8 +72,8 @@ let findAllAudioFiles () =
     //       title = false
     //       minimumSongDuration = 10u }
     // |> Promise.map (fun t -> Array.map (fun (t1: AndroidAudioStore.Track) -> t1.path) t |> Array.toList |> FindAllAudioFilesResult)
-    AudioRepository.findAllAudioFiles ["/"]
-    |> Promise.map FindAllAudioFilesResult
+    // AudioRepository.findAllAudioFilesWithModificationTime ["/"]
+    // |> Promise.map FindAllAudioFilesResult
 
 
 
