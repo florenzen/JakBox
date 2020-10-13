@@ -30,6 +30,8 @@ module AudioRepository
 
 open System
 open Utils
+open Fable.Core
+open Fable.Core.JsInterop
 open Fable.ReactNative.AndroidAudioStore
 open Fable.Import.ReactNative.SqLiteStorage
 open Fable.ReactNative.SqLiteStorage
@@ -45,7 +47,7 @@ type Track =
     { Id: int32
       Name: string
       AlbumId: int32
-      TrackNumber:int32
+      TrackNumber: int32
       Duration: TimeSpan
       LastModified: DateTime
       Path: string }
@@ -94,6 +96,10 @@ let private initTrackTable (tx: ISqLiteTransaction) =
     DirectoryId INTEGER,
     LastModified INTEGER)"
     |> ignore
+    tx.ExecuteSql "INSERT INTO Track (Name, TrackNumber, Duration) VALUES ('Foo', 1, '10000')"
+    |> ignore
+    tx.ExecuteSql "INSERT INTO Track (Name, TrackNumber, Duration) VALUES ('Bar', 2, '20000')"
+    |> ignore
     debug "initalized Track table"
 
 let private generateSelectForFilePath (path: string): string * string [] =
@@ -116,7 +122,7 @@ let private generateSelectForFilePath (path: string): string * string [] =
                 index
                 index
                 index
-                innerCondition                
+                innerCondition
         | directory :: directories ->
             let condition =
                 sprintf
@@ -125,7 +131,7 @@ let private generateSelectForFilePath (path: string): string * string [] =
                     index
                     index
                     (index + 1)
-                    innerCondition                    
+                    innerCondition
 
             conditionsFromDirectories directories condition (index + 1)
 
@@ -145,22 +151,33 @@ let private generateSelectForFilePath (path: string): string * string [] =
      + " LIMIT 1",
      Array.ofList (filename :: directoriesList))
 
-let private Track option findTrackByPath (tx: ISqLiteTransaction) (path: string) =
+let private findTrackByPath (tx: ISqLiteTransaction) (path: string): JS.Promise<Track option> =
     let (select, arguments) = generateSelectForFilePath path
 
-    let (_, result) = tx.ExecuteSql(select, arguments)
-    let rows = result.Rows
-    if rows.Length = 0 then
-        None
-    else
-        let row = rows.Item 0
-        let duration = TimeSpan.FromTicks(row?Duration)
-        let lastModified = DateTime.FromTicks(row?LastModified, DateTimeKind.Utc)
-        Some {Id = row?Id, Name=row?Name, AlbumId = row?AlbumId, TrackNumber = row?TrackNumber, Duration = duration, LastModified = lastModified}
+    tx.ExecuteSql(select, arguments |> Array.map (fun arg -> arg :> obj))
+    |> Promise.map (fun (_, result) ->
+        let rows = result.Rows
+        if rows.Length = 0 then
+            None
+        else
+            let row = rows.Item 0
+            let duration = TimeSpan.FromTicks(int64 row?Duration)
 
-    
+            let lastModified =
+                DateTime(int64 row?LastModified, DateTimeKind.Utc)
 
-    
+            Some
+                { Id = int32 row?Id
+                  Name = row?Name
+                  AlbumId = int32 row?AlbumId
+                  TrackNumber = int32 row?TrackNumber
+                  Duration = duration
+                  LastModified = lastModified
+                  Path = path })
+
+
+
+
 
 // dir1 dir2 dir3 dir4 fname
 // SELECT t.Id, t.Name FROM Track t
@@ -231,4 +248,12 @@ let updateRepo (repo: AudioRepo) =
                     stat.Size
                     (stat.Mtime.ToString())
                     (stat.Ctime.ToString())
-                Promise.lift repo)))
+                repo.Database.Transaction(fun tx ->
+                    tx.ExecuteSql("SELECT * FROM Track LIMIT 1")
+                    |> Promise.map (fun (_, result) ->
+                        let rows = result.Rows
+                        debug "row count %i" rows.Length
+                        let row = rows.Item 0
+                        debug "row 0 %O" row?Name)
+                    |> ignore)
+                |> Promise.map (fun _ -> repo))))
