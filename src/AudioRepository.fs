@@ -233,28 +233,39 @@ let closeRepo (repo: AudioRepo) =
 
 let statList (paths: string list) = paths |> List.map stat |> Promise.all
 
+type LookupResult =
+    { Path: string
+      ModificationTime: DateTime
+      MaybeTrack: Track option }
+
+let lookupTracksByPaths (tx: ISqLiteTransaction)
+                        (pathsAndModificationTimes: (string * DateTime) list)
+                        : JS.Promise<LookupResult []> =
+    let lookupPromises =
+        pathsAndModificationTimes
+        |> List.map (fun (path, modTime) ->
+            findTrackByPath tx path
+            |> Promise.map (fun maybeTrack ->
+                { Path = path
+                  ModificationTime = modTime
+                  MaybeTrack = maybeTrack }))
+
+    Promise.Parallel(Array.ofList lookupPromises)
+
 let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
     findAllAudioFilesWithModificationTime repo.RootDirectoryPaths
     |> Promise.bind (fun pathsAndModTimes ->
-        repo.Database.Transaction(fun tx ->
-            let comparePromises =
-                pathsAndModTimes
-                |> List.map (fun (path, modTime) ->
-                    findTrackByPath tx path
-                    |> Promise.map (fun maybeTrack ->
-                        {| Path = path
-                           ModTime = modTime
-                           MaybeTrack = maybeTrack |}))
-
-            Promise.Parallel(Array.ofList comparePromises)
-            |> Promise.map (fun compares ->
-                compares
-                |> Array.iter (fun compare ->
+        repo.Database.Transaction(fun tx ->           
+            lookupTracksByPaths tx pathsAndModTimes
+            |> Promise.map (fun lookupResults ->
+                lookupResults
+                |> Array.iter (fun lookupResult ->
                     let trackString =
-                        match compare.MaybeTrack with
+                        match lookupResult.MaybeTrack with
                         | None -> "None"
                         | Some t -> sprintf "{Name = %s, ModTime = %s}" t.Name (t.LastModified.ToString())
-                    debug "Path: %s, modTime: %s, %s" compare.Path (compare.ModTime.ToString()) trackString))
+
+                    debug "Path: %s, modTime: %s, %s" lookupResult.Path (lookupResult.ModTime.ToString()) trackString))
             |> ignore)
         |> Promise.map (fun _ -> repo))
 
