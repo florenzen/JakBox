@@ -238,6 +238,11 @@ type LookupResult =
       ModificationTime: DateTime
       MaybeTrack: Track option }
 
+type Changes =
+    { Added: seq<LookupResult>
+      Changed: seq<LookupResult>
+      Removed: seq<Track> }
+
 let lookupTracksByPaths (tx: ISqLiteTransaction)
                         (pathsAndModificationTimes: (string * DateTime) list)
                         : JS.Promise<LookupResult []> =
@@ -252,10 +257,22 @@ let lookupTracksByPaths (tx: ISqLiteTransaction)
 
     Promise.Parallel(Array.ofList lookupPromises)
 
+let addedAndChangedFromLookupResults (lookupResults: seq<LookupResult>) =
+    lookupResults
+    |> List.ofSeq
+    |> List.partition (fun lookupResult -> lookupResult.MaybeTrack.IsNone)
+    |> fun (added, possiblyChanged) ->
+        { Added = added
+          Changed =
+              possiblyChanged
+              |> List.filter (fun lookupResult ->
+                  lookupResult.ModificationTime > lookupResult.MaybeTrack.Value.LastModified)
+          Removed = List.empty }
+
 let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
     findAllAudioFilesWithModificationTime repo.RootDirectoryPaths
     |> Promise.bind (fun pathsAndModTimes ->
-        repo.Database.Transaction(fun tx ->           
+        repo.Database.Transaction(fun tx ->
             lookupTracksByPaths tx pathsAndModTimes
             |> Promise.map (fun lookupResults ->
                 lookupResults
@@ -265,7 +282,7 @@ let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
                         | None -> "None"
                         | Some t -> sprintf "{Name = %s, ModTime = %s}" t.Name (t.LastModified.ToString())
 
-                    debug "Path: %s, modTime: %s, %s" lookupResult.Path (lookupResult.ModTime.ToString()) trackString))
+                    debug "Path: %s, modTime: %s, %s" lookupResult.Path (lookupResult.ModificationTime.ToString()) trackString))
             |> ignore)
         |> Promise.map (fun _ -> repo))
 
