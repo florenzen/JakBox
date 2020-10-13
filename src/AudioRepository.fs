@@ -151,6 +151,20 @@ let private generateSelectForFilePath (path: string): string * string [] =
      + " LIMIT 1",
      Array.ofList (filename :: directoriesList))
 
+let trackFromRow (row: obj) (path: string) =
+    let duration = TimeSpan.FromTicks(int64 row?Duration)
+
+    let lastModified =
+        DateTime(int64 row?LastModified, DateTimeKind.Utc)
+
+    { Id = int32 row?Id
+      Name = row?Name
+      AlbumId = int32 row?AlbumId
+      TrackNumber = int32 row?TrackNumber
+      Duration = duration
+      LastModified = lastModified
+      Path = path }
+
 let private findTrackByPath (tx: ISqLiteTransaction) (path: string): JS.Promise<Track option> =
     let (select, arguments) = generateSelectForFilePath path
 
@@ -161,35 +175,54 @@ let private findTrackByPath (tx: ISqLiteTransaction) (path: string): JS.Promise<
             None
         else
             let row = rows.Item 0
-            let duration = TimeSpan.FromTicks(int64 row?Duration)
+            Some(trackFromRow row path))
 
-            let lastModified =
-                DateTime(int64 row?LastModified, DateTimeKind.Utc)
+let findTracksByIds (tx: ISqLiteTransaction) (ids: int32 []): JS.Promise<(int32 * Track option) list> =
+    let select =
+        "SELECT
+    t.Id,
+    t.Name,
+    t.AlbumId,
+    t.TrackNumber,
+    t.Duration,
+    t.LastModified,
+    (
+        WITH Directories(Id, Pos) AS (
+            SELECT DirectoryId, 0 FROM File WHERE Id = t.Id
+            UNION ALL
+            SELECT
+                (SELECT DirectoryId FROM Directory d WHERE d.Id = ds.Id),
+                ds.Pos+1
+            FROM Directories ds
+            WHERE ds.Id IS NOT NULL)
+        SELECT
+            '/' ||
+            GROUP_CONCAT(Name, '/') ||
+            '/' ||
+            (SELECT Name From File WHERE Id = f.Id) AS Path
+        FROM (
+            SELECT (SELECT d.Name FROM Directory d WHERE d.Id = ds.Id) AS Name
+            FROM Directories ds
+            WHERE Name IS NOT NULL
+            ORDER BY ds.Pos DESC)) AS Path
+FROM Track t
+WHERE t.Id IN ?"
 
-            Some
-                { Id = int32 row?Id
-                  Name = row?Name
-                  AlbumId = int32 row?AlbumId
-                  TrackNumber = int32 row?TrackNumber
-                  Duration = duration
-                  LastModified = lastModified
-                  Path = path })
+    tx.ExecuteSql(select, [| ids |])
+    |> Promise.map (fun (_, result) ->
+        let rows = result.Rows
 
+        let idsAndTracks =
+            [ for idx in 0 .. rows.Length - 1 do
+                let track = trackFromRow (rows.Item idx) (rows.Item idx)?Path
+                yield (track.Id, Some track) ]
 
+        let trackIds = idsAndTracks |> List.map fst
 
+        let idsNotFound =
+            List.filter (fun id -> not (List.contains id trackIds)) (List.ofArray ids)
 
-
-// dir1 dir2 dir3 dir4 fname
-// SELECT t.Id, t.Name FROM Track t
-// WHERE t.Filename = filename
-// AND (SELECT d4.Name FROM Directories d4
-//      WHERE d4.Id = t.DirectoryId
-//      AND (SELECT d3.Name FROM Directories d3
-//           WHERE d3.Id = d4.Id
-//           AND (SELECT d2.Name FROM Directoris d2) =
-//                ) = dir3) = dir4
-
-
+        List.append idsAndTracks (List.map (fun id -> (id, None)) idsNotFound))
 
 let private initTables (db: ISqLiteDatabase) =
     db.Transaction(fun tx ->
@@ -282,7 +315,11 @@ let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
                         | None -> "None"
                         | Some t -> sprintf "{Name = %s, ModTime = %s}" t.Name (t.LastModified.ToString())
 
-                    debug "Path: %s, modTime: %s, %s" lookupResult.Path (lookupResult.ModificationTime.ToString()) trackString))
+                    debug
+                        "Path: %s, modTime: %s, %s"
+                        lookupResult.Path
+                        (lookupResult.ModificationTime.ToString())
+                        trackString))
             |> ignore)
         |> Promise.map (fun _ -> repo))
 
