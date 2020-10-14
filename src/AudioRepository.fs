@@ -43,7 +43,7 @@ type AudioRepo =
       RootDirectoryPaths: seq<string>
       DbName: string }
 
-type Track =
+type private Track =
     { Id: int32
       Name: string
       AlbumId: int32
@@ -151,7 +151,7 @@ let private generateSelectForFilePath (path: string): string * string [] =
      + " LIMIT 1",
      Array.ofList (filename :: directoriesList))
 
-let trackFromRow (row: obj) (path: string) =
+let private trackFromRow (row: obj) (path: string) =
     let duration = TimeSpan.FromTicks(int64 row?Duration)
 
     let lastModified =
@@ -177,7 +177,7 @@ let private findTrackByPath (tx: ISqLiteTransaction) (path: string): JS.Promise<
             let row = rows.Item 0
             Some(trackFromRow row path))
 
-let findTracksByIds (tx: ISqLiteTransaction) (ids: int32 []): JS.Promise<(int32 * Track option) list> =
+let private findTracksByIds (tx: ISqLiteTransaction) (ids: int32 []): JS.Promise<(int32 * Track option) list> =
     let select = "SELECT
     t.Id,
     t.Name,
@@ -219,7 +219,7 @@ WHERE t.Id IN ?"
                 (track.Id, Some track) ]
 
         let trackIds = idsAndTracks |> List.map fst
-        
+
         let idsNotFound = List.ofArray ids |> List.except trackIds
 
         List.append idsAndTracks (List.map (fun id -> (id, None)) idsNotFound))
@@ -231,7 +231,7 @@ let private initTables (db: ISqLiteDatabase) =
         initAlbumTable tx
         initTrackTable tx)
 
-let findAllAudioFilesWithModificationTime (rootDirectoryPaths: seq<string>) =
+let private findAllAudioFilesWithModificationTime (rootDirectoryPaths: seq<string>) =
     getAll (GetAllOptions())
     |> Promise.bind (fun tracks ->
         tracks
@@ -264,21 +264,21 @@ let closeRepo (repo: AudioRepo) =
     repo.Database.Close()
     |> Promise.map (fun () -> debug "closed repo database %s" repo.DbName)
 
-let statList (paths: string list) = paths |> List.map stat |> Promise.all
+let private statList (paths: string list) = paths |> List.map stat |> Promise.all
 
-type LookupResult =
+type private LookupResult =
     { Path: string
       ModificationTime: DateTime
       MaybeTrack: Track option }
 
-type Changes =
+type private Changes =
     { Added: seq<LookupResult>
       Changed: seq<LookupResult>
       Removed: seq<Track> }
 
-let lookupTracksByPaths (tx: ISqLiteTransaction)
-                        (pathsAndModificationTimes: (string * DateTime) list)
-                        : JS.Promise<LookupResult []> =
+let private lookupTracksByPaths (tx: ISqLiteTransaction)
+                                (pathsAndModificationTimes: (string * DateTime) list)
+                                : JS.Promise<LookupResult []> =
     let lookupPromises =
         pathsAndModificationTimes
         |> List.map (fun (path, modTime) ->
@@ -290,7 +290,7 @@ let lookupTracksByPaths (tx: ISqLiteTransaction)
 
     Promise.Parallel(Array.ofList lookupPromises)
 
-let addedAndChangedFromLookupResults (lookupResults: seq<LookupResult>) =
+let private addedAndChangedFromLookupResults (lookupResults: seq<LookupResult>) =
     lookupResults
     |> List.ofSeq
     |> List.partition (fun lookupResult -> lookupResult.MaybeTrack.IsNone)
@@ -301,6 +301,8 @@ let addedAndChangedFromLookupResults (lookupResults: seq<LookupResult>) =
               |> List.filter (fun lookupResult ->
                   lookupResult.ModificationTime > lookupResult.MaybeTrack.Value.LastModified)
           Removed = List.empty }
+
+
 
 let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
     findAllAudioFilesWithModificationTime repo.RootDirectoryPaths
