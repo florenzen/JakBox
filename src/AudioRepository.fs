@@ -365,11 +365,12 @@ let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
                 let changesAddedChanged =
                     addedAndChangedFromLookupResults lookupResults
 
-                //removedFromLookupResults tx lookupResults
-                //|> Promise.map (fun changesRemoved ->
-                let allChanges = changesAddedChanged //+ changesRemoved
-                debug "%s" (changesToText allChanges)
-                //)
+                repo.Database.Transaction(fun tx ->
+                    removedFromLookupResults tx lookupResults
+                    |> Promise.map (fun changesRemoved ->
+                        let allChanges = changesAddedChanged + changesRemoved
+                        debug "%s" (changesToText allChanges))
+                    |> ignore)
 
                 // lookupResults
 
