@@ -177,8 +177,12 @@ let private findTrackByPath (tx: ISqLiteTransaction) (path: string): JS.Promise<
             let row = rows.Item 0
             Some(trackFromRow row path))
 
-let private findTracksByIds (tx: ISqLiteTransaction) (ids: int32 []): JS.Promise<(int32 * Track option) list> =
-    let select = "SELECT
+let private findTracksByIds (tx: ISqLiteTransaction)
+                            (ids: int32 [])
+                            (invert: bool)
+                            : JS.Promise<(int32 * Track option) list> =
+    let select =
+        sprintf "SELECT
     t.Id,
     t.Name,
     t.AlbumId,
@@ -205,7 +209,7 @@ let private findTracksByIds (tx: ISqLiteTransaction) (ids: int32 []): JS.Promise
             WHERE Name IS NOT NULL
             ORDER BY ds.Pos DESC)) AS Path
 FROM Track t
-WHERE t.Id IN ?"
+WHERE t.Id %sIN ?" (if invert then "NOT " else "")
 
     tx.ExecuteSql(select, [| ids |])
     |> Promise.map (fun (_, result) ->
@@ -276,6 +280,32 @@ type private Changes =
       Changed: seq<LookupResult>
       Removed: seq<Track> }
 
+let private changesToText (allChanges: Changes): string =
+    let addedText =
+        "ADDED\n"
+        + (allChanges.Added
+           |> Seq.map (fun lookupResult -> lookupResult.Path)
+           |> String.concat "\n")
+
+    let changedText =
+        "CHANGED"
+        + (allChanges.Changed
+           |> Seq.map (fun lookupResult -> lookupResult.MaybeTrack.Value.Path)
+           |> String.concat "\n")
+
+    let removedText =
+        "REMOVED"
+        + (allChanges.Removed
+           |> Seq.map (fun track -> track.Path)
+           |> String.concat "\n")
+
+    String.concat "\n" [ addedText; changedText; removedText ]
+
+let private (+) (left: Changes) (right: Changes) =
+    { Added = Seq.append left.Added right.Added
+      Changed = Seq.append left.Changed right.Changed
+      Removed = Seq.append left.Removed right.Removed }
+
 let private lookupTracksByPaths (tx: ISqLiteTransaction)
                                 (pathsAndModificationTimes: (string * DateTime) list)
                                 : JS.Promise<LookupResult []> =
@@ -302,6 +332,23 @@ let private addedAndChangedFromLookupResults (lookupResults: seq<LookupResult>) 
                   lookupResult.ModificationTime > lookupResult.MaybeTrack.Value.LastModified)
           Removed = List.empty }
 
+let private removedFromLookupResults (tx: ISqLiteTransaction) (lookupResults: seq<LookupResult>) =
+    let ids =
+        lookupResults
+        |> Seq.filter (fun lookupResult -> lookupResult.MaybeTrack.IsSome)
+        |> Seq.map (fun lookupResult -> lookupResult.MaybeTrack.Value.Id)
+        |> Array.ofSeq
+
+    findTracksByIds tx ids true
+    |> Promise.map (fun results ->
+        let removed =
+            results
+            |> List.filter (snd >> Option.isSome)
+            |> List.map (snd >> Option.get)
+
+        { Added = List.empty
+          Changed = List.empty
+          Removed = removed })
 
 
 let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
@@ -310,18 +357,30 @@ let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
         repo.Database.Transaction(fun tx ->
             lookupTracksByPaths tx pathsAndModTimes
             |> Promise.map (fun lookupResults ->
-                lookupResults
-                |> Array.iter (fun lookupResult ->
-                    let trackString =
-                        match lookupResult.MaybeTrack with
-                        | None -> "None"
-                        | Some t -> sprintf "{Name = %s, ModTime = %s}" t.Name (t.LastModified.ToString())
+                let changesAddedChanged =
+                    addedAndChangedFromLookupResults lookupResults
 
-                    debug
-                        "Path: %s, modTime: %s, %s"
-                        lookupResult.Path
-                        (lookupResult.ModificationTime.ToString())
-                        trackString))
+                //removedFromLookupResults tx lookupResults
+                //|> Promise.map (fun changesRemoved ->
+                let allChanges = changesAddedChanged //+ changesRemoved
+                debug "%s" (changesToText allChanges)
+                //)
+
+                // lookupResults
+
+                // |> Array.iter (fun lookupResult ->
+                //     let trackString =
+                //         match lookupResult.MaybeTrack with
+                //         | None -> "None"
+                //         | Some t -> sprintf "{Name = %s, ModTime = %s}" t.Name (t.LastModified.ToString())
+
+                //     debug
+                //         "Path: %s, modTime: %s, %s"
+                //         lookupResult.Path
+                //         (lookupResult.ModificationTime.ToString())
+                //         trackString)
+
+                )
             |> ignore)
         |> Promise.map (fun _ -> repo))
 
