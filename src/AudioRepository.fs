@@ -355,6 +355,27 @@ let private removedFromLookupResults (tx: ISqLiteTransaction) (lookupResults: se
           Changed = List.empty
           Removed = removed })
 
+// let private findAllChanges (repo: AudioRepo): JS.Promise<Changes> =
+//     findAllAudioFilesWithModificationTime repo.RootDirectoryPaths
+//     |> Promise.bind (fun pathsAndModTimes ->
+//         repo.Database.Transaction(fun tx ->
+//             lookupTracksByPaths tx pathsAndModTimes
+//             |> Promise.map (fun lookupResults ->
+//                 let changesAddedChanged =
+//                     addedAndChangedFromLookupResults lookupResults
+
+//                 repo.Database.Transaction(fun tx ->
+//                     removedFromLookupResults tx lookupResults
+//                     |> Promise.map (fun changesRemoved ->
+//                         let allChanges = changesAddedChanged + changesRemoved
+//                         debug "%s" (changesToText allChanges))
+//                     |> ignore)
+
+
+
+//                 )
+//             |> ignore)
+//         |> Promise.map (fun _ -> repo))
 
 let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
     findAllAudioFilesWithModificationTime repo.RootDirectoryPaths
