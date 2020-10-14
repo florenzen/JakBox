@@ -181,6 +181,11 @@ let private findTracksByIds (tx: ISqLiteTransaction)
                             (ids: int32 [])
                             (invert: bool)
                             : JS.Promise<(int32 * Track option) list> =
+    let idsAsSqlList =
+        ids
+        |> Array.map (fun id -> id.ToString())
+        |> String.concat ","        
+
     let select =
         sprintf "SELECT
     t.Id,
@@ -209,9 +214,9 @@ let private findTracksByIds (tx: ISqLiteTransaction)
             WHERE Name IS NOT NULL
             ORDER BY ds.Pos DESC)) AS Path
 FROM Track t
-WHERE t.Id %sIN ?" (if invert then "NOT " else "")
+WHERE t.Id %sIN (%s)" (if invert then "NOT " else "") idsAsSqlList
 
-    tx.ExecuteSql(select, [| ids |])
+    tx.ExecuteSql select
     |> Promise.map (fun (_, result) ->
         let rows = result.Rows
 
