@@ -191,7 +191,7 @@ let private findTracksByIds (tx: ISqLiteTransaction)
     t.LastModified,
     (
         WITH Directories(Id, Pos) AS (
-            SELECT DirectoryId, 0 FROM File WHERE Id = t.Id
+            SELECT DirectoryId, 0 FROM Track WHERE Id = t.Id
             UNION ALL
             SELECT
                 (SELECT DirectoryId FROM Directory d WHERE d.Id = ds.Id),
@@ -202,7 +202,7 @@ let private findTracksByIds (tx: ISqLiteTransaction)
             '/' ||
             GROUP_CONCAT(Name, '/') ||
             '/' ||
-            (SELECT Name From File WHERE Id = f.Id) AS Path
+            (SELECT Name From Track WHERE Id = t.Id) AS Path
         FROM (
             SELECT (SELECT d.Name FROM Directory d WHERE d.Id = ds.Id) AS Name
             FROM Directories ds
