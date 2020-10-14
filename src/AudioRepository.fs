@@ -178,8 +178,7 @@ let private findTrackByPath (tx: ISqLiteTransaction) (path: string): JS.Promise<
             Some(trackFromRow row path))
 
 let findTracksByIds (tx: ISqLiteTransaction) (ids: int32 []): JS.Promise<(int32 * Track option) list> =
-    let select =
-        "SELECT
+    let select = "SELECT
     t.Id,
     t.Name,
     t.AlbumId,
@@ -213,14 +212,15 @@ WHERE t.Id IN ?"
         let rows = result.Rows
 
         let idsAndTracks =
-            [ for idx in 0 .. rows.Length - 1 do
-                let track = trackFromRow (rows.Item idx) (rows.Item idx)?Path
-                yield (track.Id, Some track) ]
+            [ for idx in 0 .. rows.Length - 1 ->
+                let track =
+                    trackFromRow (rows.Item idx) (rows.Item idx)?Path
+
+                (track.Id, Some track) ]
 
         let trackIds = idsAndTracks |> List.map fst
-
-        let idsNotFound =
-            List.filter (fun id -> not (List.contains id trackIds)) (List.ofArray ids)
+        
+        let idsNotFound = List.ofArray ids |> List.except trackIds
 
         List.append idsAndTracks (List.map (fun id -> (id, None)) idsNotFound))
 
