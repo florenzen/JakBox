@@ -52,29 +52,29 @@ type private Track =
       LastModified: DateTime
       Path: string }
 
-let private initDirectoryTable (tx: ISqLiteTransaction) =
-    tx.ExecuteSql "DROP TABLE IF EXISTS Directory"
+let private initDirectoryTable (db: ISqLiteDatabase) =
+    db.ExecuteSql "DROP TABLE IF EXISTS Directory"
     |> ignore
-    tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Directory (
+    db.ExecuteSql "CREATE TABLE IF NOT EXISTS Directory (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     DirectoryId INTEGER)"
     |> ignore
     debug "initalized Directory table"
 
-let private initArtistTable (tx: ISqLiteTransaction) =
-    tx.ExecuteSql "DROP TABLE IF EXISTS Artist"
+let private initArtistTable (db: ISqLiteDatabase) =
+    db.ExecuteSql "DROP TABLE IF EXISTS Artist"
     |> ignore
-    tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Artist (
+    db.ExecuteSql "CREATE TABLE IF NOT EXISTS Artist (
     Id INTEGER PRIMARY KEY,
     Name TEXT)"
     |> ignore
     debug "initalized Artist table"
 
-let private initAlbumTable (tx: ISqLiteTransaction) =
-    tx.ExecuteSql "DROP TABLE IF EXISTS Album"
+let private initAlbumTable (db: ISqLiteDatabase) =
+    db.ExecuteSql "DROP TABLE IF EXISTS Album"
     |> ignore
-    tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Album (
+    db.ExecuteSql "CREATE TABLE IF NOT EXISTS Album (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     NumTrack INTEGER,
@@ -83,10 +83,10 @@ let private initAlbumTable (tx: ISqLiteTransaction) =
     |> ignore
     debug "initalized Album table"
 
-let private initTrackTable (tx: ISqLiteTransaction) =
-    tx.ExecuteSql "DROP TABLE IF EXISTS Track"
+let private initTrackTable (db: ISqLiteDatabase) =
+    db.ExecuteSql "DROP TABLE IF EXISTS Track"
     |> ignore
-    tx.ExecuteSql "CREATE TABLE IF NOT EXISTS Track (
+    db.ExecuteSql "CREATE TABLE IF NOT EXISTS Track (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     AlbumId INTEGER,
@@ -96,9 +96,9 @@ let private initTrackTable (tx: ISqLiteTransaction) =
     DirectoryId INTEGER,
     LastModified INTEGER)"
     |> ignore
-    tx.ExecuteSql "INSERT INTO Track (Name, TrackNumber, Duration) VALUES ('Foo', 1, '10000')"
+    db.ExecuteSql "INSERT INTO Track (Name, TrackNumber, Duration) VALUES ('Foo', 1, '10000')"
     |> ignore
-    tx.ExecuteSql "INSERT INTO Track (Name, TrackNumber, Duration) VALUES ('Bar', 2, '20000')"
+    db.ExecuteSql "INSERT INTO Track (Name, TrackNumber, Duration) VALUES ('Bar', 2, '20000')"
     |> ignore
     debug "initalized Track table"
 
@@ -165,11 +165,11 @@ let private trackFromRow (row: obj) (path: string) =
       LastModified = lastModified
       Path = path }
 
-let private findTrackByPath (tx: ISqLiteTransaction) (path: string): JS.Promise<Track option> =
+let private findTrackByPath (db: ISqLiteDatabase) (path: string): JS.Promise<Track option> =
     let (select, arguments) = generateSelectForFilePath path
 
-    tx.ExecuteSql(select, arguments |> Array.map (fun arg -> arg :> obj))
-    |> Promise.map (fun (_, result) ->
+    db.ExecuteSql(select, arguments |> Array.map (fun arg -> arg :> obj))
+    |> Promise.map (fun result ->
         let rows = result.Rows
         if rows.Length = 0 then
             None
@@ -177,7 +177,7 @@ let private findTrackByPath (tx: ISqLiteTransaction) (path: string): JS.Promise<
             let row = rows.Item 0
             Some(trackFromRow row path))
 
-let private findTracksByIds (tx: ISqLiteTransaction)
+let private findTracksByIds (db: ISqLiteDatabase)
                             (ids: int32 [])
                             (invert: bool)
                             : JS.Promise<(int32 * Track option) list> =
@@ -216,8 +216,8 @@ let private findTracksByIds (tx: ISqLiteTransaction)
 FROM Track t
 WHERE t.Id %sIN (%s)" (if invert then "NOT " else "") idsAsSqlList
 
-    tx.ExecuteSql select
-    |> Promise.map (fun (_, result) ->
+    db.ExecuteSql select
+    |> Promise.map (fun result ->
         let rows = result.Rows
 
         let idsAndTracks =
@@ -233,12 +233,11 @@ WHERE t.Id %sIN (%s)" (if invert then "NOT " else "") idsAsSqlList
 
         List.append idsAndTracks (List.map (fun id -> (id, None)) idsNotFound))
 
-let private initTables (db: ISqLiteDatabase) =
-    db.Transaction(fun tx ->
-        initDirectoryTable tx
-        initArtistTable tx
-        initAlbumTable tx
-        initTrackTable tx)
+let private initTables (db: ISqLiteDatabase) =    
+    initDirectoryTable db
+    initArtistTable db
+    initAlbumTable db
+    initTrackTable db
 
 let private findAllAudioFilesWithModificationTime (rootDirectoryPaths: seq<string>) =
     getAll (GetAllOptions())
@@ -264,10 +263,10 @@ let openRepo (dbName: string) (rootDirectoryPaths: seq<string>) =
     |> Promise.bind (fun db ->
         debug "opened repo database %s" dbName
         initTables db
-        |> Promise.map (fun _ ->
+        Promise.lift
             { Database = db
               DbName = dbName
-              RootDirectoryPaths = rootDirectoryPaths }))
+              RootDirectoryPaths = rootDirectoryPaths })
 
 let closeRepo (repo: AudioRepo) =
     repo.Database.Close()
@@ -311,13 +310,13 @@ let private (+) (left: Changes) (right: Changes) =
       Changed = Seq.append left.Changed right.Changed
       Removed = Seq.append left.Removed right.Removed }
 
-let private lookupTracksByPaths (tx: ISqLiteTransaction)
+let private lookupTracksByPaths (db: ISqLiteDatabase)
                                 (pathsAndModificationTimes: (string * DateTime) list)
                                 : JS.Promise<LookupResult []> =
     let lookupPromises =
         pathsAndModificationTimes
         |> List.map (fun (path, modTime) ->
-            findTrackByPath tx path
+            findTrackByPath db path
             |> Promise.map (fun maybeTrack ->
                 { Path = path
                   ModificationTime = modTime
@@ -337,14 +336,14 @@ let private addedAndChangedFromLookupResults (lookupResults: seq<LookupResult>) 
                   lookupResult.ModificationTime > lookupResult.MaybeTrack.Value.LastModified)
           Removed = List.empty }
 
-let private removedFromLookupResults (tx: ISqLiteTransaction) (lookupResults: seq<LookupResult>) =
+let private removedFromLookupResults (db: ISqLiteDatabase) (lookupResults: seq<LookupResult>) =
     let ids =
         lookupResults
         |> Seq.filter (fun lookupResult -> lookupResult.MaybeTrack.IsSome)
         |> Seq.map (fun lookupResult -> lookupResult.MaybeTrack.Value.Id)
         |> Array.ofSeq
 
-    findTracksByIds tx ids true
+    findTracksByIds db ids true
     |> Promise.map (fun results ->
         let removed =
             results
