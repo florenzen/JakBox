@@ -38,7 +38,7 @@ type ISqLiteRows =
     abstract Length: int32
 
 type ISqLiteResult =
-    [<Emit "$0.rows">]
+    [<Emit "$0[0].rows">]
     abstract Rows: ISqLiteRows
 
 type ISqLiteTransaction =
