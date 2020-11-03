@@ -52,6 +52,15 @@ type private Track =
       LastModified: DateTime
       Path: string }
 
+type private TaggedTrack =
+    { Name: string
+      Album: string
+      Artist: string
+      TrackNumber: int32
+      Duration: TimeSpan
+      LastModified: DateTime
+      Path: string }
+
 let private initDirectoryTable (db: ISqLiteDatabase) =
     db.ExecuteSql "DROP TABLE IF EXISTS Directory"
     |> Promise.bind (fun _ ->
@@ -296,7 +305,7 @@ let private changesToText (allChanges: Changes): string =
 
     String.concat "\n" [ addedText; changedText; removedText ]
 
-let private (+) (left: Changes) (right: Changes) =
+let private (++) (left: Changes) (right: Changes) =
     { Added = Seq.append left.Added right.Added
       Changed = Seq.append left.Changed right.Changed
       Removed = Seq.append left.Removed right.Removed }
@@ -378,7 +387,7 @@ let private findAllChanges (repo: AudioRepo): JS.Promise<Changes> =
 
             removedFromLookupResults repo.Database lookupResults
             |> Promise.map (fun changesRemoved ->
-                let allChanges = changesAddedChanged + changesRemoved
+                let allChanges = changesAddedChanged ++ changesRemoved
                 debug "%s" (changesToText allChanges)
                 allChanges)))
 
@@ -393,23 +402,27 @@ let findArtistIdByName (db: ISqLiteDatabase) (artist: string): JS.Promise<int32 
             Promise.lift None)
 
 let private addArtistToDb (db: ISqLiteDatabase) (artist: string): JS.Promise<unit> =
-    db.ExecuteSql("INSERT OR IGNORE INTO Artist (Name) SELECT ? WHERE NOT EXISTS (SELECT * FROM Artist WHERE Name = ?)", [|artist;artist|])
+    db.ExecuteSql
+        ("INSERT OR IGNORE INTO Artist (Name) SELECT ? WHERE NOT EXISTS (SELECT * FROM Artist WHERE Name = ?)",
+         [| artist; artist |])
     |> Promise.map ignore
 
-    // findArtistIdByName db artist
-    // |> Promise.bind (fun maybeArtistId ->
-    //     match maybeArtistId with
-    //     | None ->
-    //         db.ExecuteSql("INSERT INTO Artist (Name) VALUES (?)", [| artist |])
-    //         |> Promise.bind (fun _ ->
-    //             findArtistIdByName db artist
-    //             |> Promise.map (fun someArtistId ->
-    //                 let id = Option.get someArtistId
-    //                 debug "artist %s added with id %i" artist id
-    //                 id))
-    //     | Some id ->
-    //         debug "artist %s already in db with id %i" artist id
-    //         Promise.lift id)
+// findArtistIdByName db artist
+// |> Promise.bind (fun maybeArtistId ->
+//     match maybeArtistId with
+//     | None ->
+//         db.ExecuteSql("INSERT INTO Artist (Name) VALUES (?)", [| artist |])
+//         |> Promise.bind (fun _ ->
+//             findArtistIdByName db artist
+//             |> Promise.map (fun someArtistId ->
+//                 let id = Option.get someArtistId
+//                 debug "artist %s added with id %i" artist id
+//                 id))
+//     | Some id ->
+//         debug "artist %s already in db with id %i" artist id
+//         Promise.lift id)
+
+
 
 let rec private sequentialize (promises: JS.Promise<'T> list): JS.Promise<'T list> =
     match promises with
@@ -419,6 +432,62 @@ let rec private sequentialize (promises: JS.Promise<'T> list): JS.Promise<'T lis
         |> Promise.bind (fun result ->
             sequentialize promises1
             |> Promise.bind (fun results -> Promise.lift (result :: results)))
+
+let private insertTaggedTracks (db: ISqLiteDatabase) (albumId: int32) (taggedTracks: TaggedTrack list) =
+    match taggedTracks with
+    | [] -> Promise.lift ()
+    | taggedTrack :: taggedTracks ->
+        debug "going to insert %s" taggedTrack.Name
+        db.ExecuteSql
+            ("INSERT INTO Track (Name, AlbumId, TrackNumber, Duration, Filename, LastModified) VALUES (?, ?, ?, ?, ?, ?)",
+             [| taggedTrack.Name
+                albumId
+                taggedTrack.TrackNumber
+                0 // TODO
+                Path.filename taggedTrack.Path
+                0 |]) // TODO
+        |> Promise.bind (fun _ ->
+            debug "inserted %s" taggedTrack.Name
+            Promise.lift ())
+
+let private addGroupedByAlbum (db: ISqLiteDatabase) (artistId: int32) (byAlbum: (string * TaggedTrack list) list) =
+    match byAlbum with
+    | [] -> Promise.lift ()
+    | (album, taggedTracks) :: byAlbums ->
+        db.ExecuteSql
+            ("INSERT OR IGNORE INTO Album (Name, ArtistId) SELECT ?, ? WHERE NOT EXISTS (SELECT * FROM Album WHERE Name = ? AND ArtistId = ?); ",
+             [| album; artistId; album; artistId |])
+        |> Promise.bind (fun _ ->
+            db.ExecuteSql("SELECT Id FROM Album WHERE Name = ?", [| album |])
+            |> Promise.bind (fun result ->
+                let albumId = int32 (result.Rows.Item(0))?Id
+                debug "inserted %s as %i" album albumId
+                insertTaggedTracks db albumId taggedTracks))
+
+let private addGroupedByArtist (db: ISqLiteDatabase) (byArtist: (string * (string * TaggedTrack list) list) list) =
+    match byArtist with
+    | [] -> Promise.lift ()
+    | (artist, byAlbum) :: byArtists ->
+        debug "insert artist %s" artist
+        db.ExecuteSql
+            ("INSERT OR IGNORE INTO Artist (Name) SELECT ? WHERE NOT EXISTS (SELECT * FROM Artist WHERE Name = ?); ",
+             [| artist; artist |])
+        |> Promise.bind (fun _ ->
+            db.ExecuteSql("SELECT Id FROM Artist WHERE Name = ?", [| artist |])
+            |> Promise.bind (fun result ->
+                let artistId = int32 (result.Rows.Item(0))?Id
+                debug "inserted %s as %i" artist artistId
+                addGroupedByAlbum db artistId byAlbum))
+
+let private addTaggedTracks (db: ISqLiteDatabase) (taggedTracks: TaggedTrack list) =
+    taggedTracks
+    |> List.groupBy (fun taggedTrack -> taggedTrack.Artist)
+    |> List.map (fun (artist, taggedTracks) ->
+        (artist,
+         taggedTracks
+         |> List.groupBy (fun taggedTrack -> taggedTrack.Album)))
+    |> addGroupedByArtist db
+
 
 let private writeAddedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
     added
@@ -432,10 +501,19 @@ let private writeAddedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
               JsMediaTags.Album
               JsMediaTags.Track ]
 
-        |> Promise.bind (fun id3 ->
-            debug "adding artist %s to db" id3.Tags.Artist
-            addArtistToDb db id3.Tags.Artist))
-    |> sequentialize
+        |> Promise.map (fun id3 ->
+            { Name = id3.Tags.Title
+              Artist = id3.Tags.Artist
+              Album = id3.Tags.Album
+              TrackNumber = 0 // TODO
+              Duration = TimeSpan.Zero // TODO
+              LastModified = lookupResult.ModificationTime
+              Path = lookupResult.Path }))
+    |> Promise.all
+    |> Promise.bind (List.ofArray >> addTaggedTracks db)
+
+
+
 
 
 let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
