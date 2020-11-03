@@ -392,21 +392,24 @@ let findArtistIdByName (db: ISqLiteDatabase) (artist: string): JS.Promise<int32 
         else
             Promise.lift None)
 
-let private addArtistToDb (db: ISqLiteDatabase) (artist: string): JS.Promise<int32> =
-    findArtistIdByName db artist
-    |> Promise.bind (fun maybeArtistId ->
-        match maybeArtistId with
-        | None ->
-            db.ExecuteSql("INSERT INTO Artist (Name) VALUES (?)", [| artist |])
-            |> Promise.bind (fun _ ->
-                findArtistIdByName db artist
-                |> Promise.map (fun someArtistId ->
-                    let id = Option.get someArtistId
-                    debug "artist %s added with id %i" artist id
-                    id))
-        | Some id ->
-            debug "artist %s already in db with id %i" artist id
-            Promise.lift id)
+let private addArtistToDb (db: ISqLiteDatabase) (artist: string): JS.Promise<unit> =
+    db.ExecuteSql("INSERT OR IGNORE INTO Artist (Name) SELECT ? WHERE NOT EXISTS (SELECT * FROM Artist WHERE Name = ?)", [|artist;artist|])
+    |> Promise.map ignore
+
+    // findArtistIdByName db artist
+    // |> Promise.bind (fun maybeArtistId ->
+    //     match maybeArtistId with
+    //     | None ->
+    //         db.ExecuteSql("INSERT INTO Artist (Name) VALUES (?)", [| artist |])
+    //         |> Promise.bind (fun _ ->
+    //             findArtistIdByName db artist
+    //             |> Promise.map (fun someArtistId ->
+    //                 let id = Option.get someArtistId
+    //                 debug "artist %s added with id %i" artist id
+    //                 id))
+    //     | Some id ->
+    //         debug "artist %s already in db with id %i" artist id
+    //         Promise.lift id)
 
 let rec private sequentialize (promises: JS.Promise<'T> list): JS.Promise<'T list> =
     match promises with
@@ -440,9 +443,9 @@ let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
     |> Promise.bind (fun changes ->
         writeAddedToDb repo.Database changes.Added
         |> Promise.bind (fun _ ->
-            repo.Database.ExecuteSql("SELECT COUNT(*) FROM Artist")
+            repo.Database.ExecuteSql("SELECT * FROM Artist")
             |> Promise.map (fun result ->
-                debug "SELECT COUNT %i" (result.Rows.Item(0) :?> int32)
+                debug "COUNT %i" result.Rows.Length
                 repo)))
 
 
