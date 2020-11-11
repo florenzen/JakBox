@@ -370,24 +370,6 @@ let private findAllChanges (repo: AudioRepo): JS.Promise<Changes> =
                 allChanges)))
 
 
-let findArtistIdByName (db: ISqLiteDatabase) (artist: string): JS.Promise<int32 option> =
-    db.ExecuteSql("SELECT Id FROM Artist WHERE Name = ?", [| artist |])
-    |> Promise.bind (fun result ->
-        let rows = result.Rows
-        if rows.Length > 0 then
-            let id = result.Rows.Item(0) :?> int32
-            Promise.lift (Some id)
-        else
-            Promise.lift None)
-
-
-let private addArtistToDb (db: ISqLiteDatabase) (artist: string): JS.Promise<unit> =
-    db.ExecuteSql
-        ("INSERT OR IGNORE INTO Artist (Name) SELECT ? WHERE NOT EXISTS (SELECT * FROM Artist WHERE Name = ?)",
-         [| artist; artist |])
-    |> Promise.map ignore
-
-
 let rec private insertTaggedTracks (db: ISqLiteDatabase) (albumId: int32) (taggedTracks: TaggedTrack list) =
     let insertSingleTaggedTrack (taggedTrack: TaggedTrack) =
         debug "going to insert %s" taggedTrack.Name
