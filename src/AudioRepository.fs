@@ -465,10 +465,15 @@ let private writeAddedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
     |> Promise.bind (List.ofArray >> addTaggedTracks db)
 
 
+let private writeChangedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
+    Promise.lift ()
+    // CONTINUE HERE
+
 let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
     promise {
         let! changes = findAllChanges repo
         let! _ = writeAddedToDb repo.Database changes.Added
+        let! _ = writeChangedToDb repo.Database changes.Changed
         let! result = repo.Database.ExecuteSql("SELECT * FROM Album")
         debug "number of albums %i" result.Rows.Length
         return repo
