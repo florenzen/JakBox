@@ -433,10 +433,9 @@ let rec private sequentialize (promises: JS.Promise<'T> list): JS.Promise<'T lis
             sequentialize promises1
             |> Promise.bind (fun results -> Promise.lift (result :: results)))
 
-let private insertTaggedTracks (db: ISqLiteDatabase) (albumId: int32) (taggedTracks: TaggedTrack list) =
-    match taggedTracks with
-    | [] -> Promise.lift ()
-    | taggedTrack :: taggedTracks ->
+
+let rec private insertTaggedTracks (db: ISqLiteDatabase) (albumId: int32) (taggedTracks: TaggedTrack list) =
+    let insertSingleTaggedTrack (taggedTrack: TaggedTrack) =
         debug "going to insert %s" taggedTrack.Name
         db.ExecuteSql
             ("INSERT INTO Track (Name, AlbumId, TrackNumber, Duration, Filename, LastModified) VALUES (?, ?, ?, ?, ?, ?)",
@@ -450,10 +449,15 @@ let private insertTaggedTracks (db: ISqLiteDatabase) (albumId: int32) (taggedTra
             debug "inserted %s" taggedTrack.Name
             Promise.lift ())
 
-let private addGroupedByAlbum (db: ISqLiteDatabase) (artistId: int32) (byAlbum: (string * TaggedTrack list) list) =
-    match byAlbum with
+    match taggedTracks with
     | [] -> Promise.lift ()
-    | (album, taggedTracks) :: byAlbums ->
+    | taggedTrack :: taggedTracks ->
+        insertSingleTaggedTrack taggedTrack
+        |> Promise.bind (fun _ -> insertTaggedTracks db albumId taggedTracks)
+
+
+let rec private addGroupedByAlbum (db: ISqLiteDatabase) (artistId: int32) (byAlbum: (string * TaggedTrack list) list) =
+    let addSingleAlbum (album: string) (taggedTracks: TaggedTrack list) =
         db.ExecuteSql
             ("INSERT OR IGNORE INTO Album (Name, ArtistId) SELECT ?, ? WHERE NOT EXISTS (SELECT * FROM Album WHERE Name = ? AND ArtistId = ?); ",
              [| album; artistId; album; artistId |])
@@ -464,10 +468,15 @@ let private addGroupedByAlbum (db: ISqLiteDatabase) (artistId: int32) (byAlbum: 
                 debug "inserted %s as %i" album albumId
                 insertTaggedTracks db albumId taggedTracks))
 
-let private addGroupedByArtist (db: ISqLiteDatabase) (byArtist: (string * (string * TaggedTrack list) list) list) =
-    match byArtist with
+    match byAlbum with
     | [] -> Promise.lift ()
-    | (artist, byAlbum) :: byArtists ->
+    | (album, taggedTracks) :: byAlbums ->
+        addSingleAlbum album taggedTracks
+        |> Promise.bind (fun _ -> addGroupedByAlbum db artistId byAlbums)
+
+
+let rec private addGroupedByArtist (db: ISqLiteDatabase) (byArtist: (string * (string * TaggedTrack list) list) list) =
+    let addSingleArtist (artist: string) (byAlbum: (string * TaggedTrack list) list) =
         debug "insert artist %s" artist
         db.ExecuteSql
             ("INSERT OR IGNORE INTO Artist (Name) SELECT ? WHERE NOT EXISTS (SELECT * FROM Artist WHERE Name = ?); ",
@@ -478,6 +487,13 @@ let private addGroupedByArtist (db: ISqLiteDatabase) (byArtist: (string * (strin
                 let artistId = int32 (result.Rows.Item(0))?Id
                 debug "inserted %s as %i" artist artistId
                 addGroupedByAlbum db artistId byAlbum))
+
+    match byArtist with
+    | [] -> Promise.lift ()
+    | (artist, byAlbum) :: byArtists ->
+        addSingleArtist artist byAlbum
+        |> Promise.bind (fun _ -> addGroupedByArtist db byArtists)
+
 
 let private addTaggedTracks (db: ISqLiteDatabase) (taggedTracks: TaggedTrack list) =
     taggedTracks
