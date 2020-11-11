@@ -248,7 +248,7 @@ let private findAllAudioFilesWithModificationTime (rootDirectoryPaths: seq<strin
         |> Array.map (fun path ->
             stat path
             |> Promise.map (fun statResult -> (path, statResult)))
-        |> Promise.Parallel
+        |> Promise.all
         |> Promise.map (fun results ->
             results
             |> Array.map (fun (path, statResult) -> (path, statResult.Mtime))
@@ -322,7 +322,7 @@ let private lookupTracksByPaths (db: ISqLiteDatabase)
                   ModificationTime = modTime
                   MaybeTrack = maybeTrack }))
 
-    Promise.Parallel(Array.ofList lookupPromises)
+    Promise.all (Array.ofList lookupPromises)
 
 let private addedAndChangedFromLookupResults (lookupResults: seq<LookupResult>) =
     lookupResults
