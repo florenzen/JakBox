@@ -483,38 +483,14 @@ let private writeAddedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
     |> Promise.bind (List.ofArray >> addTaggedTracks db)
 
 
-
-
-
 let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
-    findAllChanges repo
-    |> Promise.bind (fun changes ->
-        writeAddedToDb repo.Database changes.Added
-        |> Promise.bind (fun _ ->
-            repo.Database.ExecuteSql("SELECT * FROM Album")
-            |> Promise.map (fun result ->
-                debug "COUNT %i" result.Rows.Length
-                repo)))
-
-
-
-
-// lookupResults
-
-// |> Array.iter (fun lookupResult ->
-//     let trackString =
-//         match lookupResult.MaybeTrack with
-//         | None -> "None"
-//         | Some t -> sprintf "{Name = %s, ModTime = %s}" t.Name (t.LastModified.ToString())
-
-//     debug
-//         "Path: %s, modTime: %s, %s"
-//         lookupResult.Path
-//         (lookupResult.ModificationTime.ToString())
-//         trackString)
-
-
-
+    promise {
+        let! changes = findAllChanges repo
+        let! _ = writeAddedToDb repo.Database changes.Added
+        let! result = repo.Database.ExecuteSql("SELECT * FROM Album")
+        debug "number of albums %i" result.Rows.Length
+        return repo
+    }
 
 
 let updateRepo1 (repo: AudioRepo) =
