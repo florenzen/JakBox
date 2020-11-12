@@ -232,20 +232,26 @@ WHERE t.Id %sIN (%s)" (if invert then "NOT " else "") idsAsSqlList
         List.append idsAndTracks (List.map (fun id -> (id, None)) idsNotFound))
 
 
-let private findAlbumAndArtistByAlbumId (db: ISqLiteDatabase) (albumId: int32)=
-    db.ExecuteSql("SELECT alb.Name AS AlbumName, art.Name AS ArtistName
+let private findAlbumAndArtistByAlbumId (db: ISqLiteDatabase) (albumId: int32) =
+    db.ExecuteSql
+        ("SELECT alb.Name AS AlbumName, art.Name AS ArtistName
 FROM Album alb
 JOIN Artist art
 ON alb.ArtistId = art.Id
 WHERE alb.Id = ?
-LIMIT 1", [|albumId|])
+LIMIT 1",
+         [| albumId |])
     |> Promise.map (fun result ->
         if result.Rows.Length = 0 then
             None
         else
-            let albumName = result.Rows.Item(0)?AlbumName :> obj :?> string
-            let artistName = result.Rows.Item(0)?ArtistName :> obj :?> string
-            Some (albumName, artistName))
+            let albumName =
+                result.Rows.Item(0)?AlbumName :> obj :?> string
+
+            let artistName =
+                result.Rows.Item(0)?ArtistName :> obj :?> string
+
+            Some(albumName, artistName))
 
 
 let private initTables (db: ISqLiteDatabase) =
@@ -459,7 +465,7 @@ let private addTaggedTracks (db: ISqLiteDatabase) (taggedTracks: TaggedTrack lis
 
 
 let private readTagsFromLookupResults (results: seq<LookupResult>) =
-    results    
+    results
     |> Seq.map (fun lookupResult ->
         debug "reading tags of %s" lookupResult.Path
         JsMediaTags.readTags
@@ -480,24 +486,49 @@ let private readTagsFromLookupResults (results: seq<LookupResult>) =
     |> Promise.all
     |> Promise.map List.ofArray
 
+let private updateAlbumAndArtistOfTrack db album artist taggedTrack =
+
+    Promise.lift ()
+
+let private updateSimpleValuesOfTrack (db: ISqLiteDatabase) (taggedTrack: TaggedTrack) (track: Track) =
+    db.ExecuteSql
+        ("UPDATE Track
+SET Name = ?,
+    TrackNumber = ?,
+    Duration = ?,
+    LastModified = ?
+WHERE Id = ?",
+         [| taggedTrack.Name,
+            taggedTrack.TrackNumber,
+            int64 taggedTrack.Duration.Ticks,
+            int64 taggedTrack.LastModified.Ticks,
+            track.Id |])
+    |> Promise.map ignore
 
 let rec private updateTaggedTracks (db: ISqLiteDatabase) (taggedTracks: TaggedTrack list) =
     let updateSingleTaggedTrack (taggedTrack: TaggedTrack) =
         findTrackByPath db taggedTrack.Path
         |> Promise.bind (fun maybeTrack ->
             match maybeTrack with
-            None ->
-                debug "changed track with patj %s not found in database" taggedTrack.Path
+            | None ->
+                debug "ERROR: changed track with path %s not found in database" taggedTrack.Path
                 Promise.lift ()
-            Some track ->
-                db.ExecuteSql("SELECT * FROM")
-        )
+            | Some track ->
+                findAlbumAndArtistByAlbumId db track.AlbumId
+                |> Promise.bind (fun maybeAlbumandArtist ->
+                    match maybeAlbumandArtist with
+                    | None ->
+                        debug "ERROR: could not find album and artist for album id %i" track.AlbumId
+                        Promise.lift ()
+                    | Some (album, artist) ->
+                        updateAlbumAndArtistOfTrack db album artist taggedTrack
+                        |> Promise.bind (fun _ -> updateSimpleValuesOfTrack db taggedTrack track)))
+
     match taggedTracks with
     | [] -> Promise.lift ()
-    | track::tracks ->
+    | track :: tracks ->
         updateSingleTaggedTrack track
-        |> Promise.bind (fun _ ->
-            updateTaggedTracks db tracks)
+        |> Promise.bind (fun _ -> updateTaggedTracks db tracks)
 
 
 let private writeAddedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
@@ -506,7 +537,7 @@ let private writeAddedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
     |> Promise.bind (List.ofSeq >> addTaggedTracks db)
 
 
-let private writeChangedToDb (db: ISqLiteDatabase) (changed: seq<LookupResult>) =    
+let private writeChangedToDb (db: ISqLiteDatabase) (changed: seq<LookupResult>) =
     changed
     |> readTagsFromLookupResults
     |> Promise.bind (updateTaggedTracks db)
