@@ -32,20 +32,24 @@ open Elmish
 open Elmish.React
 open Elmish.ReactNative
 open Fable.ReactNative
+open Fable.ReactNative.Props
+
 
 open Utils
-open Fable.Import.ReactNative.SqLiteStorage
-open Fable.Core
-open Fable.Core.JsInterop
 
-type Model = { Text: string }
+
+type Model =
+    { NextAction: string
+      PreviousAction: string
+      Repo: AudioRepository.AudioRepo option }
 
 type Message =
     | RequestPermissionResult of Permissions.PermissionStatus
-    | FindAllAudioFilesResult of string list
-    | InteractWithSqLiteResult of string
+    | AudioRepositoryOpened of AudioRepository.AudioRepo
+    | AudioRepositoryUpdated of AudioRepository.AudioRepo
 
-let requestReadExternalStoragePermission () =
+
+let private requestReadExternalStoragePermission () =
     Permissions.check Permissions.Android.ReadExternalStorage
     |> Promise.bind (fun result ->
         if result <> Permissions.Granted then
@@ -61,98 +65,64 @@ let requestReadExternalStoragePermission () =
             debug "permission already granted"
             RequestPermissionResult result |> Promise.lift)
 
-// let findAllAudioFiles () =
-    // AndroidAudioStore.getAll {
-    //       id = false
-    //       blured = false
-    //       artist = false
-    //       duration = false
-    //       cover = false
-    //       genre = false
-    //       title = false
-    //       minimumSongDuration = 10u }
-    // |> Promise.map (fun t -> Array.map (fun (t1: AndroidAudioStore.Track) -> t1.path) t |> Array.toList |> FindAllAudioFilesResult)
-    // AudioRepository.findAllAudioFilesWithModificationTime ["/"]
-    // |> Promise.map FindAllAudioFilesResult
+
+let private openRepo () =
+    AudioRepository.openRepo "repo.sqlite" [ "/" ]
+    |> Promise.map AudioRepositoryOpened
 
 
-
-// let sqLite: ISqLite =
-//     importDefault "react-native-sqlite-storage"
-
-// let tfun (tx: ISqLiteTransaction): JS.Promise<unit> =
-//     tx.ExecuteNonQuery("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)")
-//     tx.ExecuteNonQuery("INSERT INTO Foo (Id, Name) VALUES (1, 'one111')")
-//     tx.ExecuteQuery("SELECT * FROM Foo")
-//     |> Promise.map (fun r ->
-//         // |> Promise.bind (fun r2 ->
-//         printfn "foo %O" (r.Rows.Item(4))?Name
-//         printfn "len %O" (r.Rows.Length))
-
-// let interactWithSqLite () =
-//     // sqLite.EnablePromise (true)
-
-//     // sqLite.Debug(true)
-//     SqLiteStorage.openDatabase "repo.sqlite"
-//     |> Promise.bind (fun db -> db.Transaction tfun)
-
-//     // |> Promise.bind (fun rows2 ->
-//     //     tx.ExecuteSql ("SELECT * FROM Foo", [||])
-//     //     |> Promise.bind (fun r4 ->
-//     //         printfn "bar %O" (r4.[1].Rows.Item(1)?Id)
-//     //         Promise.lift ())))))
-
-//     |> Promise.bind (fun r2 -> Promise.lift (InteractWithSqLiteResult(sprintf "finished with SQLite")))
-// //.Length.ToString())
+let private updateRepo (repo: AudioRepository.AudioRepo) =
+    AudioRepository.updateRepo repo
+    |> Promise.map AudioRepositoryUpdated
 
 
+let private initModel =
+    { PreviousAction = ""
+      NextAction = "request permission for storage"
+      Repo = None }
 
-// let sqLite = SqLiteDatabase("repo.sqlite")
-// sqLite.OpenDatabase()
-// |> Promise.bind (fun _ ->
-//     // let tx = sqLite.Transaction()
-//     // printfn "sqLite %O" sqLite
-//     // printfn "tx1 %O" tx
-//     sqLite.Transaction(fun tx ->
-//         printfn "tx %O" tx
-//         tx.ExecuteSql("CREATE TABLE IF NOT EXISTS Foo (Id INT, Name TEXT)")
-//         |> Promise.bind (fun (tx1, r1) ->
-//             printfn "result of create table %O" r1.Length
-//             tx1.ExecuteSql("INSERT INTO Foo (Id, Name) VALUES (1, 'one')")
-//             |> Promise.bind (fun r2 ->
-//             //     tx.ExecuteSql("INSERT INTO Foo (Id, Name) VALUES (2, 'two')")
-//             //     |> Promise.bind (fun r3 ->
-//             //         tx.ExecuteSql("SELECT * FROM Foo")
-//             //         |> Promise.bind (fun res ->
-//             //             printfn "select result %O" res
-//                 Promise.lift (InteractWithSqLiteResult "created table Foo")))))
 
-let interactWithAudioRepo () =
-    AudioRepository.openRepo "repo.sqlite" ["/"]
-    |> Promise.bind (fun repo ->
-        AudioRepository.updateRepo repo
-        |> Promise.bind (fun repo ->
-            AudioRepository.closeRepo repo            
-            Promise.lift (InteractWithSqLiteResult "finished with interacting with repo")))
+let private init () =
+    (initModel,
+     Cmd.OfPromise.result
+     <| requestReadExternalStoragePermission ())
 
-let init () =
-    let initModel = { Text = "initialized" }
-    let initSteps = requestReadExternalStoragePermission ()
-    (initModel, Cmd.OfPromise.result initSteps)
 
-let update msg model =
+let private update msg model =
     match msg with
     | RequestPermissionResult result ->
-        //let nextStep = findAllAudioFiles ()
-        //let nextStep = interactWithSqLite ()
-        let nextStep = interactWithAudioRepo ()
-        ({ Text = sprintf "result of permission request: %O" result }, Cmd.OfPromise.result nextStep)
-    | FindAllAudioFilesResult paths ->
-        let fileListing = String.concat "\n" paths
-        ({ Text = fileListing }, Cmd.none)
-    | InteractWithSqLiteResult text -> ({ Text = text }, Cmd.none)
+        ({ model with
+               NextAction = "open repository"
+               PreviousAction = "permissions " + result.ToString() },
+         Cmd.OfPromise.result <| openRepo ())
+    | AudioRepositoryOpened repo ->
+        ({ model with
+               NextAction = "update repository"
+               PreviousAction = "repository open"
+               Repo = Some repo },
+         Cmd.OfPromise.result <| updateRepo repo)
+    | AudioRepositoryUpdated repo ->
+        ({ model with
+               NextAction = ""
+               PreviousAction = "repository up-to-date"
+               Repo = Some repo },
+         Cmd.none)
 
-let view model dispatch = view [] [ text [] model.Text ]
+let private debugBox (model: Model) =
+    let box (content: string) (color: string) =
+        text
+            [ TextProperties.Style [ Width(pct 50.0)
+                                     BackgroundColor color
+                                     Padding <| dip 3.0 ] ]
+            content
+
+    view [ ViewProperties.Style [ FlexDirection FlexDirection.Row ] ] [
+        box model.PreviousAction "#119900"
+        box model.NextAction "#991100"
+    ]
+
+let private view (model: Model) dispatch = view [] [ debugBox model ]
+
 
 Program.mkProgram init update view
 #if RELEASE
