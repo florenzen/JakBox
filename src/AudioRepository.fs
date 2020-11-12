@@ -440,11 +440,9 @@ let private addTaggedTracks (db: ISqLiteDatabase) (taggedTracks: TaggedTrack lis
          |> List.groupBy (fun taggedTrack -> taggedTrack.Album)))
     |> addGroupedByArtist db
 
-
-let private writeAddedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
-    added
-    |> Seq.toList
-    |> List.map (fun lookupResult ->
+let private readTagsFromLookupResults (results: seq<LookupResult>) =
+    results    
+    |> Seq.map (fun lookupResult ->
         debug "reading tags of %s" lookupResult.Path
         JsMediaTags.readTags
             lookupResult.Path
@@ -462,7 +460,13 @@ let private writeAddedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
               LastModified = lookupResult.ModificationTime
               Path = lookupResult.Path }))
     |> Promise.all
-    |> Promise.bind (List.ofArray >> addTaggedTracks db)
+    |> Promise.map Seq.ofArray
+
+
+let private writeAddedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
+    added
+    |> readTagsFromLookupResults
+    |> Promise.bind (List.ofSeq >> addTaggedTracks db)
 
 
 let private writeChangedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
