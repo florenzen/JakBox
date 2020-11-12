@@ -255,12 +255,13 @@ LIMIT 1",
 
 
 let private initTables (db: ISqLiteDatabase) =
-    initDirectoryTable db
-    |> Promise.bind (fun _ ->
-        initArtistTable db
-        |> Promise.bind (fun _ ->
-            initAlbumTable db
-            |> Promise.bind (fun _ -> initTrackTable db)))
+    promise {
+        let! _ = initDirectoryTable db
+        let! _ = initArtistTable db
+        let! _ = initAlbumTable db
+        initTrackTable db |> ignore
+    }
+    
 
 let private findAllAudioFilesWithModificationTime (rootDirectoryPaths: seq<string>) =
     getAll (GetAllOptions())
