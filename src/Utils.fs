@@ -28,6 +28,8 @@
 
 module Utils
 
+let cnst x _ = x
+
 let debug format =
 #if RELEASE
 #else
