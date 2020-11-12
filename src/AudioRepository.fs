@@ -415,17 +415,21 @@ let rec private insertTaggedTracks (db: ISqLiteDatabase) (albumId: int32) (tagge
         |> Promise.bind (fun _ -> insertTaggedTracks db albumId taggedTracks)
 
 
+let insertSingleAlbum (db: ISqLiteDatabase) (artistId: int32) (album: string) =
+    db.ExecuteSql
+        ("INSERT OR IGNORE INTO Album (Name, ArtistId) SELECT ?, ? WHERE NOT EXISTS (SELECT * FROM Album WHERE Name = ? AND ArtistId = ?); ",
+         [| album; artistId; album; artistId |])
+    |> Promise.bind (fun _ ->
+        db.ExecuteSql("SELECT Id FROM Album WHERE Name = ?", [| album |])
+        |> Promise.bind (fun result ->
+            let albumId = int32 (result.Rows.Item(0))?Id
+            debug "inserted %s as %i" album albumId
+            Promise.lift albumId))
+
 let rec private addGroupedByAlbum (db: ISqLiteDatabase) (artistId: int32) (byAlbum: (string * TaggedTrack list) list) =
     let addSingleAlbum (album: string) (taggedTracks: TaggedTrack list) =
-        db.ExecuteSql
-            ("INSERT OR IGNORE INTO Album (Name, ArtistId) SELECT ?, ? WHERE NOT EXISTS (SELECT * FROM Album WHERE Name = ? AND ArtistId = ?); ",
-             [| album; artistId; album; artistId |])
-        |> Promise.bind (fun _ ->
-            db.ExecuteSql("SELECT Id FROM Album WHERE Name = ?", [| album |])
-            |> Promise.bind (fun result ->
-                let albumId = int32 (result.Rows.Item(0))?Id
-                debug "inserted %s as %i" album albumId
-                insertTaggedTracks db albumId taggedTracks))
+        insertSingleAlbum db artistId album
+        |> Promise.bind (fun albumId -> insertTaggedTracks db albumId taggedTracks)
 
     match byAlbum with
     | [] -> Promise.lift ()
@@ -434,18 +438,23 @@ let rec private addGroupedByAlbum (db: ISqLiteDatabase) (artistId: int32) (byAlb
         |> Promise.bind (fun _ -> addGroupedByAlbum db artistId byAlbums)
 
 
+let insertSingleArtist (db: ISqLiteDatabase) (artist: string) =
+    debug "insert artist %s" artist
+    db.ExecuteSql
+        ("INSERT OR IGNORE INTO Artist (Name) SELECT ? WHERE NOT EXISTS (SELECT * FROM Artist WHERE Name = ?); ",
+         [| artist; artist |])
+    |> Promise.bind (fun _ ->
+        db.ExecuteSql("SELECT Id FROM Artist WHERE Name = ?", [| artist |])
+        |> Promise.bind (fun result ->
+            let artistId = int32 (result.Rows.Item(0))?Id
+            debug "inserted %s as %i" artist artistId
+            Promise.lift artistId))
+
+
 let rec private addGroupedByArtist (db: ISqLiteDatabase) (byArtist: (string * (string * TaggedTrack list) list) list) =
     let addSingleArtist (artist: string) (byAlbum: (string * TaggedTrack list) list) =
-        debug "insert artist %s" artist
-        db.ExecuteSql
-            ("INSERT OR IGNORE INTO Artist (Name) SELECT ? WHERE NOT EXISTS (SELECT * FROM Artist WHERE Name = ?); ",
-             [| artist; artist |])
-        |> Promise.bind (fun _ ->
-            db.ExecuteSql("SELECT Id FROM Artist WHERE Name = ?", [| artist |])
-            |> Promise.bind (fun result ->
-                let artistId = int32 (result.Rows.Item(0))?Id
-                debug "inserted %s as %i" artist artistId
-                addGroupedByAlbum db artistId byAlbum))
+        insertSingleArtist db artist
+        |> Promise.bind (fun artistId -> addGroupedByAlbum db artistId byAlbum)
 
     match byArtist with
     | [] -> Promise.lift ()
@@ -486,9 +495,41 @@ let private readTagsFromLookupResults (results: seq<LookupResult>) =
     |> Promise.all
     |> Promise.map List.ofArray
 
-let private updateAlbumAndArtistOfTrack db album artist taggedTrack =
 
-    Promise.lift ()
+let private updateAlbumAndArtistOfTrack (db: ISqLiteDatabase)
+                                        (album: string)
+                                        (artist: string)
+                                        (track: Track)
+                                        (taggedTrack: TaggedTrack)
+                                        =
+    if album
+       <> taggedTrack.Album
+       || artist <> taggedTrack.Artist then
+        db.ExecuteSql
+            ("SELECT Id
+FROM Album alb
+JOIN Artist art
+ON alb.ArtistId = art.Id
+WHERE alb.Name = ?
+AND art.Name = ?
+LIMIT 1",
+             [| taggedTrack.Album
+                taggedTrack.Artist |])
+        |> Promise.bind (fun result ->
+            if result.Rows.Length = 0 then
+                promise {
+                    let! artistId = insertSingleArtist db taggedTrack.Artist
+                    let! albumId = insertSingleAlbum db artistId taggedTrack.Album
+
+                    db.ExecuteSql("UPDATE Track SET Album = ? WHERE Id = ?", [| albumId; track.Id |])
+                    |> ignore
+                }
+            else
+                db.ExecuteSql("UPDATE Track SET AlbumId = ? WHERE Id = ?", [| result.Rows.Item(0)?Id; track.Id |])
+                |> Promise.map ignore)
+    else
+        Promise.lift ()
+
 
 let private updateSimpleValuesOfTrack (db: ISqLiteDatabase) (taggedTrack: TaggedTrack) (track: Track) =
     db.ExecuteSql
@@ -498,12 +539,13 @@ SET Name = ?,
     Duration = ?,
     LastModified = ?
 WHERE Id = ?",
-         [| taggedTrack.Name,
-            taggedTrack.TrackNumber,
-            int64 taggedTrack.Duration.Ticks,
-            int64 taggedTrack.LastModified.Ticks,
+         [| taggedTrack.Name
+            taggedTrack.TrackNumber
+            int64 taggedTrack.Duration.Ticks
+            int64 taggedTrack.LastModified.Ticks
             track.Id |])
     |> Promise.map ignore
+
 
 let rec private updateTaggedTracks (db: ISqLiteDatabase) (taggedTracks: TaggedTrack list) =
     let updateSingleTaggedTrack (taggedTrack: TaggedTrack) =
@@ -521,7 +563,7 @@ let rec private updateTaggedTracks (db: ISqLiteDatabase) (taggedTracks: TaggedTr
                         debug "ERROR: could not find album and artist for album id %i" track.AlbumId
                         Promise.lift ()
                     | Some (album, artist) ->
-                        updateAlbumAndArtistOfTrack db album artist taggedTrack
+                        updateAlbumAndArtistOfTrack db album artist track taggedTrack
                         |> Promise.bind (fun _ -> updateSimpleValuesOfTrack db taggedTrack track)))
 
     match taggedTracks with
@@ -548,6 +590,10 @@ let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
         let! changes = findAllChanges repo
         let! _ = writeAddedToDb repo.Database changes.Added
         let! _ = writeChangedToDb repo.Database changes.Changed
+        // TODO remove deleted
+        // TODO delete unref'd artists and albums and directories
+        // TODO fix missing track numbers
+        // TODO read album covers as first readable cover of files in track order of that album
         let! result = repo.Database.ExecuteSql("SELECT * FROM Album")
         debug "number of albums %i" result.Rows.Length
         return repo
