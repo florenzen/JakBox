@@ -47,4 +47,7 @@ let private debugBox (model: Model) =
         box model.NextAction "#991100"
     ]
 
-let view (model: Model) dispatch = view [] [ debugBox model ]
+let view (model: Model) dispatch =
+    view [ ViewProperties.Style [ FlexDirection FlexDirection.Column ] ] [
+        debugBox model
+    ]
