@@ -26,20 +26,44 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-module JakBox
+module Init
 
 open Elmish
-open Elmish.ReactNative
+open Fable.ReactNative
 
-open View
-open Update
-open Init
+open Model
+open Message
+open Utils
 
 
-Program.mkProgram init update view
-#if RELEASE
-#else
-|> Program.withConsoleTrace
-#endif
-|> Program.withReactNative "JakBox"
-|> Program.run
+let private requestReadExternalStoragePermission () =
+    Permissions.check Permissions.Android.ReadExternalStorage
+    |> Promise.bind (fun result ->
+        if result <> Permissions.Granted then
+            debug "current permission status not %O, requesting it" Permissions.Granted
+
+            let requestResult =
+                Permissions.request Permissions.Android.ReadExternalStorage
+
+            debug "result of requesting permission %O" requestResult
+            requestResult
+            |> Promise.map RequestPermissionResult
+        else
+            debug "permission already granted"
+            RequestPermissionResult result |> Promise.lift)
+
+
+let openRepo () =
+    AudioRepository.openRepo "repo.sqlite" [ "/" ]
+    |> Promise.map AudioRepositoryOpened
+
+
+let updateRepo (repo: AudioRepository.AudioRepo) =
+    AudioRepository.updateRepo repo
+    |> Promise.map AudioRepositoryUpdated
+
+
+let init () =
+    (initModel,
+     Cmd.OfPromise.result
+     <| requestReadExternalStoragePermission ())

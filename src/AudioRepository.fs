@@ -416,7 +416,7 @@ let rec private insertTaggedTracks (db: ISqLiteDatabase) (albumId: int32) (tagge
         |> Promise.bind (fun _ -> insertTaggedTracks db albumId taggedTracks)
 
 
-let insertSingleAlbum (db: ISqLiteDatabase) (artistId: int32) (album: string) =
+let private insertSingleAlbum (db: ISqLiteDatabase) (artistId: int32) (album: string) =
     db.ExecuteSql
         ("INSERT OR IGNORE INTO Album (Name, ArtistId) SELECT ?, ? WHERE NOT EXISTS (SELECT * FROM Album WHERE Name = ? AND ArtistId = ?); ",
          [| album; artistId; album; artistId |])
@@ -439,7 +439,7 @@ let rec private addGroupedByAlbum (db: ISqLiteDatabase) (artistId: int32) (byAlb
         |> Promise.bind (fun _ -> addGroupedByAlbum db artistId byAlbums)
 
 
-let insertSingleArtist (db: ISqLiteDatabase) (artist: string) =
+let private insertSingleArtist (db: ISqLiteDatabase) (artist: string) =
     debug "insert artist %s" artist
     db.ExecuteSql
         ("INSERT OR IGNORE INTO Artist (Name) SELECT ? WHERE NOT EXISTS (SELECT * FROM Artist WHERE Name = ?); ",

@@ -26,20 +26,16 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-module JakBox
+module Model
 
-open Elmish
-open Elmish.ReactNative
+open AudioRepository
 
-open View
-open Update
-open Init
+type Model =
+    { NextAction: string
+      PreviousAction: string
+      Repo: AudioRepo option }
 
-
-Program.mkProgram init update view
-#if RELEASE
-#else
-|> Program.withConsoleTrace
-#endif
-|> Program.withReactNative "JakBox"
-|> Program.run
+let initModel =
+    { PreviousAction = ""
+      NextAction = "request permission for storage"
+      Repo = None }

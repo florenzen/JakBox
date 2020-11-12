@@ -26,20 +26,12 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-module JakBox
+module Message
 
-open Elmish
-open Elmish.ReactNative
-
-open View
-open Update
-open Init
+open Fable.ReactNative
 
 
-Program.mkProgram init update view
-#if RELEASE
-#else
-|> Program.withConsoleTrace
-#endif
-|> Program.withReactNative "JakBox"
-|> Program.run
+type Message =
+    | RequestPermissionResult of Permissions.PermissionStatus
+    | AudioRepositoryOpened of AudioRepository.AudioRepo
+    | AudioRepositoryUpdated of AudioRepository.AudioRepo

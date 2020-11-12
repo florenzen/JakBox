@@ -26,20 +26,25 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-module JakBox
+module View
 
-open Elmish
-open Elmish.ReactNative
+open Fable.ReactNative
+open Fable.ReactNative.Props
 
-open View
-open Update
-open Init
+open Model
 
 
-Program.mkProgram init update view
-#if RELEASE
-#else
-|> Program.withConsoleTrace
-#endif
-|> Program.withReactNative "JakBox"
-|> Program.run
+let private debugBox (model: Model) =
+    let box (content: string) (color: string) =
+        text
+            [ TextProperties.Style [ Width(pct 50.0)
+                                     BackgroundColor color
+                                     Padding <| dip 3.0 ] ]
+            content
+
+    view [ ViewProperties.Style [ FlexDirection FlexDirection.Row ] ] [
+        box model.PreviousAction "#119900"
+        box model.NextAction "#991100"
+    ]
+
+let view (model: Model) dispatch = view [] [ debugBox model ]

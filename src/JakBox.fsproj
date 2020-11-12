@@ -1,5 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
-
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
@@ -13,6 +11,11 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Path.fs" />
     <Compile Include="AudioRepository.fs" />
+    <Compile Include="Model.fs" />
+    <Compile Include="Message.fs" />
+    <Compile Include="View.fs" />
+    <Compile Include="Init.fs" />
+    <Compile Include="Update.fs" />
     <Compile Include="JakBox.fs" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />

@@ -26,20 +26,30 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-module JakBox
+module Update
 
 open Elmish
-open Elmish.ReactNative
 
-open View
-open Update
-open Init
+open Model
+open Message
 
 
-Program.mkProgram init update view
-#if RELEASE
-#else
-|> Program.withConsoleTrace
-#endif
-|> Program.withReactNative "JakBox"
-|> Program.run
+let update msg model =
+    match msg with
+    | RequestPermissionResult result ->
+        ({ model with
+               NextAction = "open repository"
+               PreviousAction = "permissions " + result.ToString() },
+         Cmd.OfPromise.result <| Init.openRepo ())
+    | AudioRepositoryOpened repo ->
+        ({ model with
+               NextAction = "update repository"
+               PreviousAction = "repository open"
+               Repo = Some repo },
+         Cmd.OfPromise.result <| Init.updateRepo repo)
+    | AudioRepositoryUpdated repo ->
+        ({ model with
+               NextAction = ""
+               PreviousAction = "repository up-to-date"
+               Repo = Some repo },
+         Cmd.none)
