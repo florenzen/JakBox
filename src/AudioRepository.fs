@@ -463,15 +463,21 @@ let private readTagsFromLookupResults (results: seq<LookupResult>) =
     |> Promise.map Seq.ofArray
 
 
+let private updateTaggedTracks (db: ISqLiteDatabase) (taggedTracks: seq<TaggedTrack>) =
+    Promise.lift ()
+
+
 let private writeAddedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
     added
     |> readTagsFromLookupResults
     |> Promise.bind (List.ofSeq >> addTaggedTracks db)
 
 
-let private writeChangedToDb (db: ISqLiteDatabase) (added: seq<LookupResult>) =
-    Promise.lift ()
-    // CONTINUE HERE
+let private writeChangedToDb (db: ISqLiteDatabase) (changed: seq<LookupResult>) =    
+    changed
+    |> readTagsFromLookupResults
+    |> Promise.bind (updateTaggedTracks db)
+
 
 let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
     promise {
