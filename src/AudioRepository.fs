@@ -62,37 +62,37 @@ type private TaggedTrack =
       Path: string }
 
 let private initDirectoryTable (db: ISqLiteDatabase) =
-    db.ExecuteSql "DROP TABLE IF EXISTS Directory"
-    |> Promise.bind (fun _ ->
-        db.ExecuteSql "CREATE TABLE IF NOT EXISTS Directory (
+    // db.ExecuteSql "DROP TABLE IF EXISTS Directory"
+    // |> Promise.bind (fun _ ->
+    db.ExecuteSql "CREATE TABLE IF NOT EXISTS Directory (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     DirectoryId INTEGER)"
-        |> Promise.map (fun _ -> debug "initalized Directory table"))
+        |> Promise.map (fun _ -> debug "initalized Directory table")
 
 let private initArtistTable (db: ISqLiteDatabase) =
-    db.ExecuteSql "DROP TABLE IF EXISTS Artist"
-    |> Promise.bind (fun _ ->
-        db.ExecuteSql "CREATE TABLE IF NOT EXISTS Artist (
+    // db.ExecuteSql "DROP TABLE IF EXISTS Artist"
+    // |> Promise.bind (fun _ ->
+    db.ExecuteSql "CREATE TABLE IF NOT EXISTS Artist (
     Id INTEGER PRIMARY KEY,
     Name TEXT)"
-        |> Promise.map (fun _ -> debug "initalized Artist table"))
+        |> Promise.map (fun _ -> debug "initalized Artist table")
 
 let private initAlbumTable (db: ISqLiteDatabase) =
-    db.ExecuteSql "DROP TABLE IF EXISTS Album"
-    |> Promise.map (fun _ ->
-        db.ExecuteSql "CREATE TABLE IF NOT EXISTS Album (
+    // db.ExecuteSql "DROP TABLE IF EXISTS Album"
+    // |> Promise.map (fun _ ->
+    db.ExecuteSql "CREATE TABLE IF NOT EXISTS Album (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     NumTrack INTEGER,
     ArtistId INTEGER,
     Cover BLOB)"
-        |> Promise.map (fun _ -> debug "initalized Album table"))
+        |> Promise.map (fun _ -> debug "initalized Album table")
 
 let private initTrackTable (db: ISqLiteDatabase) =
-    db.ExecuteSql "DROP TABLE IF EXISTS Track"
-    |> Promise.bind (fun _ ->
-        db.ExecuteSql "CREATE TABLE IF NOT EXISTS Track (
+    // db.ExecuteSql "DROP TABLE IF EXISTS Track"
+    // |> Promise.bind (fun _ ->
+    db.ExecuteSql "CREATE TABLE IF NOT EXISTS Track (
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     AlbumId INTEGER,
@@ -101,7 +101,7 @@ let private initTrackTable (db: ISqLiteDatabase) =
     Filename TEXT,
     DirectoryId INTEGER,
     LastModified INTEGER)"
-        |> Promise.map (fun _ -> debug "initalized Track table"))
+        |> Promise.map (fun _ -> debug "initalized Track table")
 
 let private generateSelectForFilePath (path: string): string * string [] =
     // path "/a/b/d/f2.mp3"
@@ -588,15 +588,17 @@ let private writeChangedToDb (db: ISqLiteDatabase) (changed: seq<LookupResult>) 
 
 let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
     promise {
-        let! changes = findAllChanges repo
-        let! _ = writeAddedToDb repo.Database changes.Added
-        let! _ = writeChangedToDb repo.Database changes.Changed
+        //let! changes = findAllChanges repo
+        //let! _ = writeAddedToDb repo.Database changes.Added
+        //let! _ = writeChangedToDb repo.Database changes.Changed
         // TODO remove deleted
         // TODO delete unref'd artists and albums and directories
         // TODO fix missing track numbers
         // TODO read album covers as first readable cover of files in track order of that album
-        let! result = repo.Database.ExecuteSql("SELECT * FROM Album")
-        debug "number of albums %i" result.Rows.Length
+        let! numberOfAlbumsResult = repo.Database.ExecuteSql("SELECT * FROM Album")
+        debug "number of albums %i" numberOfAlbumsResult.Rows.Length
+        let! numberOfTracksResult = repo.Database.ExecuteSql("SELECT * FROM Track")
+        debug "number of tracks %i" numberOfTracksResult.Rows.Length
         return repo
     }
 
