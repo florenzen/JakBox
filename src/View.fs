@@ -33,13 +33,17 @@ open Fable.ReactNative.Props
 
 open Model
 
+let mainBackground = "#2b5079"
+let currentTrackColor = "#aa1018"
+
+let textPadding = Padding(dip 3.0)
 
 let private debugBox (model: Model) =
     let box (content: string) (color: string) =
         text
             [ TextProperties.Style [ Width(pct 50.0)
-                                     BackgroundColor color
-                                     Padding <| dip 3.0 ] ]
+                                     BackgroundColor(color)
+                                     textPadding ] ]
             content
 
     view [ ViewProperties.Style [ FlexDirection FlexDirection.Row ] ] [
@@ -47,7 +51,53 @@ let private debugBox (model: Model) =
         box model.NextAction "#991100"
     ]
 
+let artistBox (model: Model) =
+    view [] [
+        text [ TextProperties.Style [ textPadding ] ] (if model.CurrentArtist = "" then "--" else model.CurrentArtist)
+    ]
+
+let albumBox (model: Model) =
+    view [] [
+        text [ TextProperties.Style [ textPadding ] ] (if model.CurrentAlbum = "" then "--" else model.CurrentAlbum)
+    ]
+
+let coverBox (model: Model) =
+    view [] [
+        text
+            [ TextProperties.Style [ Width(pct 100.0)
+                                     BackgroundColor("#999999") ] ]
+            (if model.CurrentTrack = "" then "--" else model.CurrentTrack)
+    ]
+
+let progressSlider (model: Model) =
+    slider [ SliderProperties.Value(model.CurrentPosition) ]
+
+let trackButtons (model: Model) =
+    let button number active =
+        let properties =
+            if active
+            then [ ViewProperties.Style [ BackgroundColor(currentTrackColor) ] ]
+            else []
+        let title = number.ToString()
+
+        view
+            properties
+            [ button [ButtonProperties.Title(title)] [
+                text [] title
+              ] ]
+
+    let buttons =
+        [ for num in 1 .. model.NumberOfTracks -> button num (num = model.CurrentTrackNumber) ]
+
+    view [] buttons
+
 let view (model: Model) dispatch =
-    view [ ViewProperties.Style [ FlexDirection FlexDirection.Column ] ] [
+    view [ ViewProperties.Style [ FlexDirection(FlexDirection.Column)
+                                  BackgroundColor(mainBackground) ] ] [
+        artistBox model
+        albumBox model
+        coverBox model
+        progressSlider model
+        trackButtons model
         debugBox model
     ]

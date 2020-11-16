@@ -33,9 +33,21 @@ open AudioRepository
 type Model =
     { NextAction: string
       PreviousAction: string
+      CurrentArtist: string
+      CurrentAlbum: string
+      CurrentTrack: string
+      CurrentPosition: double
+      NumberOfTracks: int32
+      CurrentTrackNumber: int32
       Repo: AudioRepo option }
 
 let initModel =
     { PreviousAction = ""
       NextAction = "request permission for storage"
+      CurrentArtist = ""
+      CurrentAlbum = ""
+      CurrentTrack = ""
+      CurrentPosition = 0.0
+      NumberOfTracks = 6
+      CurrentTrackNumber = 3      
       Repo = None }
