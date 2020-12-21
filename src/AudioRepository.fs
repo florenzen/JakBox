@@ -68,7 +68,7 @@ let private initDirectoryTable (db: ISqLiteDatabase) =
     Id INTEGER PRIMARY KEY,
     Name TEXT,
     DirectoryId INTEGER)"
-        |> Promise.map (fun _ -> debug "initalized Directory table")
+    |> Promise.map (fun _ -> debug "initalized Directory table")
 
 let private initArtistTable (db: ISqLiteDatabase) =
     // db.ExecuteSql "DROP TABLE IF EXISTS Artist"
@@ -76,7 +76,7 @@ let private initArtistTable (db: ISqLiteDatabase) =
     db.ExecuteSql "CREATE TABLE IF NOT EXISTS Artist (
     Id INTEGER PRIMARY KEY,
     Name TEXT)"
-        |> Promise.map (fun _ -> debug "initalized Artist table")
+    |> Promise.map (fun _ -> debug "initalized Artist table")
 
 let private initAlbumTable (db: ISqLiteDatabase) =
     // db.ExecuteSql "DROP TABLE IF EXISTS Album"
@@ -87,7 +87,7 @@ let private initAlbumTable (db: ISqLiteDatabase) =
     NumTrack INTEGER,
     ArtistId INTEGER,
     Cover BLOB)"
-        |> Promise.map (fun _ -> debug "initalized Album table")
+    |> Promise.map (fun _ -> debug "initalized Album table")
 
 let private initTrackTable (db: ISqLiteDatabase) =
     // db.ExecuteSql "DROP TABLE IF EXISTS Track"
@@ -101,7 +101,7 @@ let private initTrackTable (db: ISqLiteDatabase) =
     Filename TEXT,
     DirectoryId INTEGER,
     LastModified INTEGER)"
-        |> Promise.map (fun _ -> debug "initalized Track table")
+    |> Promise.map (fun _ -> debug "initalized Track table")
 
 let private generateSelectForFilePath (path: string): string * string [] =
     // path "/a/b/d/f2.mp3"
@@ -261,7 +261,7 @@ let private initTables (db: ISqLiteDatabase) =
         let! _ = initAlbumTable db
         initTrackTable db |> ignore
     }
-    
+
 
 let private findAllAudioFilesWithModificationTime (rootDirectoryPaths: seq<string>) =
     getAll (GetAllOptions())
