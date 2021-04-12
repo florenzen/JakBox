@@ -1,0 +1,10 @@
+#!/bin/bash
+
+target="Was Ist Was - Amphibien und Reptilien - Haie"
+#target="Was Ist Was - Das Wetter - Die Jahrezeiten"
+dir="/Users/florenz/Dropbox/Hoerspiele/Was Ist Was/$target"
+find "$dir" -type f | (
+    while read f; do
+        echo "push $f"
+        adb push "$f" "/storage/emulated/0/Music/$target"
+    done)
