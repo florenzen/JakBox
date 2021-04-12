@@ -38,7 +38,10 @@ open Fable.ReactNative.SqLiteStorage
 open Fable.ReactNative
 open Fable.ReactNativeFileSystem
 
-
+type AudioRepo =
+    { Database: ISqLiteDatabase
+      RootDirectoryPaths: seq<string>
+      DbName: string }
 
 type private Track =
     { Id: int32
@@ -57,52 +60,6 @@ type private TaggedTrack =
       Duration: TimeSpan
       LastModified: DateTime
       Path: string }
-
-type AudioRepo(dbName: string, rootDirectoryPaths: seq<string>) =
-    [<DefaultValue>]
-    val mutable private database: ISqLiteDatabase
-
-    member private this.InitDirectoryTable() =
-        // db.ExecuteSql "DROP TABLE IF EXISTS Directory"
-        // |> Promise.bind (fun _ ->
-        this.database.ExecuteSql "CREATE TABLE IF NOT EXISTS Directory (
-    Id INTEGER PRIMARY KEY,
-    Name TEXT,
-    DirectoryId INTEGER)"
-        |> Promise.map (fun _ -> debug "initalized Directory table")
-
-    member private this.InitArtistTable() =
-    // db.ExecuteSql "DROP TABLE IF EXISTS Artist"
-    // |> Promise.bind (fun _ ->
-        this.database.ExecuteSql "CREATE TABLE IF NOT EXISTS Artist (
-    Id INTEGER PRIMARY KEY,
-    Name TEXT)"
-        |> Promise.map (fun _ -> debug "initalized Artist table")
-
-
-    member private this.InitTables() =
-        promise {
-            let! _ = this.InitDirectoryTable()
-            let! _ = this.InitArtistTable()
-            let! _ = initAlbumTable()
-            initTrackTable() |> ignore
-        }
-
-    member this.Open(): JS.Promise<unit> =
-        assert (Seq.forall Path.isAbsolute rootDirectoryPaths)
-#if DEBUG
-        setDebugMode true
-#endif
-        openDatabase dbName
-        |> Promise.bind (fun db ->
-            this.database <- db
-            debug "opened repo database %s" dbName
-            initTables
-            )
-
-    { Database: ISqLiteDatabase
-      RootDirectoryPaths: seq<string>
-      DbName: string }
 
 let private initDirectoryTable (db: ISqLiteDatabase) =
     // db.ExecuteSql "DROP TABLE IF EXISTS Directory"
