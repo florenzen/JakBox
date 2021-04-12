@@ -588,9 +588,9 @@ let private writeChangedToDb (db: ISqLiteDatabase) (changed: seq<LookupResult>) 
 
 let updateRepo (repo: AudioRepo): JS.Promise<AudioRepo> =
     promise {
-        //let! changes = findAllChanges repo
-        //let! _ = writeAddedToDb repo.Database changes.Added
-        //let! _ = writeChangedToDb repo.Database changes.Changed
+        let! changes = findAllChanges repo
+        let! _ = writeAddedToDb repo.Database changes.Added
+        let! _ = writeChangedToDb repo.Database changes.Changed
         // TODO remove deleted
         // TODO delete unref'd artists and albums and directories
         // TODO fix missing track numbers
