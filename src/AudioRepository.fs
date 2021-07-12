@@ -101,11 +101,19 @@ let private initTrackTable (db: ISqLiteDatabase) =
     Name TEXT,
     AlbumId INTEGER,
     TrackNumber INTEGER,
-    Duration INTEGER,
+    Duration REAL,
     Filename TEXT,
     DirectoryId INTEGER,
-    LastModified INTEGER)"
+    LastModified REAL)"
     |> Promise.map (fun _ -> debug "initalized Track table")
+
+let dateTimeToMilliseconds (timestamp: DateTime) =
+    (timestamp - DateTime.MinValue.ToUniversalTime())
+        .TotalMilliseconds
+
+let millisecondsToDateTime (milliseconds: float) =
+    DateTime.MinValue.ToUniversalTime()
+    + TimeSpan.FromMilliseconds(milliseconds)
 
 let private generateSelectForFilePath (path: string) : string * string [] =
     // path "/a/b/d/f2.mp3"
@@ -157,10 +165,9 @@ let private generateSelectForFilePath (path: string) : string * string [] =
      Array.ofList (filename :: directoriesList))
 
 let private trackFromRow (row: obj) (path: string) =
-    let duration = TimeSpan.FromTicks(int64 row?Duration)
+    let duration = TimeSpan.FromMilliseconds(row?Duration)
 
-    let lastModified =
-        DateTime(int64 row?LastModified, DateTimeKind.Utc)
+    let lastModified = millisecondsToDateTime row?LastModified
 
     { Id = int32 row?Id
       Name = row?Name
@@ -474,6 +481,8 @@ let rec private insertTaggedTracks (db: ISqLiteDatabase) (albumId: int32) (tagge
         insertDirectories db taggedTrack.Path
         |> Promise.bind
             (fun maybeDirectoryId ->
+                debug "RECEIVED DIR ID %s" (maybeDirectoryId.ToString())
+
                 db.ExecuteSql(
                     "INSERT INTO Track (Name, AlbumId, TrackNumber, Duration, Filename, LastModified, DirectoryId) VALUES (?, ?, ?, ?, ?, ?, ?)",
                     [| taggedTrack.Name
@@ -481,7 +490,7 @@ let rec private insertTaggedTracks (db: ISqLiteDatabase) (albumId: int32) (tagge
                        taggedTrack.TrackNumber
                        0 // TODO
                        Path.filename taggedTrack.Path
-                       0 // TODO
+                       dateTimeToMilliseconds taggedTrack.LastModified
                        maybeDirectoryId |]
                 )
                 |> Promise.bind
@@ -572,7 +581,8 @@ let private readTagsFromLookupResults (results: seq<LookupResult>) =
                 [ JsMediaTags.Title
                   JsMediaTags.Artist
                   JsMediaTags.Album
-                  JsMediaTags.Track ]
+                  JsMediaTags.Track
+                ]
 
             |> Promise.map
                 (fun id3 ->
@@ -634,8 +644,8 @@ SET Name = ?,
 WHERE Id = ?",
         [| taggedTrack.Name
            taggedTrack.TrackNumber
-           int64 taggedTrack.Duration.Ticks
-           int64 taggedTrack.LastModified.Ticks
+           taggedTrack.Duration.TotalMilliseconds
+           dateTimeToMilliseconds taggedTrack.LastModified
            track.Id |]
     )
     |> Promise.map ignore
