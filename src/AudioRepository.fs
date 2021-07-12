@@ -121,14 +121,14 @@ let private generateSelectForFilePath (path: string) : string * string [] =
     let rec conditionsFromDirectories (directories: string list) (innerCondition: string) (index: int32) =
         match directories with
         | [] -> failwith "cannot be called on an empty list"
-        | [ directory ] ->
+        | [ _ ] ->
             sprintf
                 "(SELECT d%i.Name FROM Directory d%i WHERE d%i.Id = t.DirectoryId AND %s) = ?"
                 index
                 index
                 index
                 innerCondition
-        | directory :: directories ->
+        | _ :: directories ->
             let condition =
                 sprintf
                     "(SELECT d%i.Name FROM Directory d%i WHERE d%i.Id = d%i.DirectoryId AND %s) = ?"
