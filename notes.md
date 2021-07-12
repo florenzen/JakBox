@@ -12,3 +12,6 @@ npx react-native run-android
 ```
 
 * SQLite file on emulator device: `/data/data/com.jakbox/databases/repo.sqlite`
+```bash
+adb pull /data/data/com.jakbox/databases/repo.sqlite ~/tmp/repo1.sqlite
+```
