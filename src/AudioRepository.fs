@@ -190,7 +190,6 @@ let private findTrackByPath (db: ISqLiteDatabase) (path: string) : JS.Promise<Tr
     |> Promise.map
         (fun result ->
             let rows = result.Rows
-            debug "rows length %i" rows.Length
 
             if rows.Length = 0 then
                 None
