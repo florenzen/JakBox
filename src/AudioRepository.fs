@@ -344,13 +344,13 @@ let private changesToText (allChanges: Changes) : string =
            |> String.concat "\n")
 
     let changedText =
-        "CHANGED"
+        "CHANGED\n"
         + (allChanges.Changed
            |> Seq.map (fun lookupResult -> lookupResult.MaybeTrack.Value.Path)
            |> String.concat "\n")
 
     let removedText =
-        "REMOVED"
+        "REMOVED\n"
         + (allChanges.Removed
            |> Seq.map (fun track -> track.Path)
            |> String.concat "\n")
