@@ -110,7 +110,7 @@ let private initTrackTable (db: ISqLiteDatabase) =
 let private generateSelectForFilePath (path: string) : string * string [] =
     // path "/a/b/d/f2.mp3"
     // SELECT t.Id, t.Name FROM Track t
-    // WHERE t.Name = 'f2.mp3'
+    // WHERE t.Filename = 'f2.mp3'
     // AND (SELECT d2.Name FROM Directory d2
     //      WHERE d2.Id = t.DirectoryId
     //      AND (SELECT d1.Name FROM Directory d1
@@ -151,7 +151,7 @@ let private generateSelectForFilePath (path: string) : string * string [] =
             + conditionsFromDirectories directoriesList "d0.DirectoryId IS NULL" 0
 
     ("SELECT t.Id, t.Name, AlbumId, TrackNumber, Duration, LastModified FROM Track t "
-     + "WHERE t.Name = ? "
+     + "WHERE t.Filename = ? "
      + condFromDirectories
      + " LIMIT 1",
      Array.ofList (filename :: directoriesList))
@@ -172,7 +172,7 @@ let private trackFromRow (row: obj) (path: string) =
 
 let private findTrackByPath (db: ISqLiteDatabase) (path: string) : JS.Promise<Track option> =
     let (select, arguments) = generateSelectForFilePath path
-    debug "select for path %s: %s" path select
+    debug "select for path %s: %s (arguments = %s)" path select (String.concat "," arguments)
 
     db.ExecuteSql(select, arguments |> Array.map (fun arg -> arg :> obj))
     |> Promise.map
@@ -427,40 +427,65 @@ let private findAllChanges (repo: AudioRepo) : JS.Promise<Changes> =
 let private insertDirectories (db: ISqLiteDatabase) (path: string) =
     let (directories, _) = Path.splitFilename path
 
-    let rec insertDirectoriesWithParent (directories: string list) (directoryId: option int32) =
+    let rec insertDirectoriesWithParent (directories: string list) (directoryId: int32 option) =
         match directories with
-        | [] -> Promise.lift ()
+        | [] -> Promise.lift directoryId
         | root :: subs ->
             match directoryId with
-            | Some(id) -> db.ExecuteSql("INSERT OR IGNORE INTO Directory (Name, DirectoryId) SELECT ?, ? WHERE NOT EXISTS (SELECT * FROM Directory WHERE Name = ? AND DirectoryId = ?)", [|root; id; root; id|])
-            | None -> db.ExecuteSql("INSERT OR IGNORE INTO Directory (Name) SELECT ? WHERE NOT EXISTS (SELECT * FROM Directory WHERE Name = ? AND DirectoryId IS NULL)", [|root; root|])
-            |> Promise.bind (fun _ ->
-            )
+            | Some (id) ->
+                db.ExecuteSql(
+                    "INSERT OR IGNORE INTO Directory (Name, DirectoryId) SELECT ?, ? WHERE NOT EXISTS (SELECT * FROM Directory WHERE Name = ? AND DirectoryId = ?)",
+                    [| root; id; root; id |]
+                )
+
+            | None ->
+                db.ExecuteSql(
+                    "INSERT OR IGNORE INTO Directory (Name) SELECT ? WHERE NOT EXISTS (SELECT * FROM Directory WHERE Name = ? AND DirectoryId IS NULL)",
+                    [| root; root |]
+                )
+            |> Promise.bind
+                (fun _ ->
+                    debug "inserted DIR %s" root
+
+                    match directoryId with
+                    | Some (id) ->
+                        db.ExecuteSql("SELECT Id FROM Directory WHERE Name = ? AND DirectoryId = ?", [| root; id |])
+                        |> Promise.bind
+                            (fun result ->
+                                let parentId = result.Rows.Item(0)?Id :> obj :?> int32
+                                insertDirectoriesWithParent subs (Some(parentId)))
+                    | None ->
+                        db.ExecuteSql("SELECT Id FROM Directory WHERE Name = ? AND DirectoryId IS NULL", [| root |])
+                        |> Promise.bind
+                            (fun result ->
+                                let parentId = result.Rows.Item(0)?Id :> obj :?> int32
+                                insertDirectoriesWithParent subs (Some(parentId))))
+
+    insertDirectoriesWithParent (Seq.toList directories) None
 
 let rec private insertTaggedTracks (db: ISqLiteDatabase) (albumId: int32) (taggedTracks: TaggedTrack list) =
     let insertSingleTaggedTrack (taggedTrack: TaggedTrack) =
         debug "going to insert %s" taggedTrack.Name
-
-        db.ExecuteSql(
-            "INSERT INTO Track (Name, AlbumId, TrackNumber, Duration, Filename, LastModified) VALUES (?, ?, ?, ?, ?, ?)",
-            [| taggedTrack.Name
-               albumId
-               taggedTrack.TrackNumber
-               0 // TODO
-               Path.filename taggedTrack.Path
-               0 |]
-        )
-        |> Promise.bind
-            (fun _ ->
-                debug "inserted %s" taggedTrack.Name
-                Promise.lift ())
+        insertDirectories db taggedTrack.Path
+        |> Promise.bind (fun maybeDirectoryId ->
+            db.ExecuteSql(
+                "INSERT INTO Track (Name, AlbumId, TrackNumber, Duration, Filename, LastModified, DirectoryId) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [| taggedTrack.Name
+                   albumId
+                   taggedTrack.TrackNumber
+                   0 // TODO
+                   Path.filename taggedTrack.Path
+                   0 // TODO
+                   maybeDirectoryId|])        
+                |> Promise.bind (fun _ ->
+                    debug "inserted %s" taggedTrack.Name
+                    Promise.lift ()))
 
     match taggedTracks with
     | [] -> Promise.lift ()
     | taggedTrack :: taggedTracks ->
         insertSingleTaggedTrack taggedTrack
         |> Promise.bind (fun _ -> insertTaggedTracks db albumId taggedTracks)
-
 
 let private insertSingleAlbum (db: ISqLiteDatabase) (artistId: int32) (album: string) =
     db.ExecuteSql(
