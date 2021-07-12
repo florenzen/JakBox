@@ -573,6 +573,15 @@ let private addTaggedTracks (db: ISqLiteDatabase) (taggedTracks: TaggedTrack lis
              |> List.groupBy (fun taggedTrack -> taggedTrack.Album)))
     |> addGroupedByArtist db
 
+let private trackNumberFromTag (trackTag: string) =
+    let components = trackTag.Split("/")
+
+    if components.Length < 1 then
+        0
+    else
+        let numberString = components.[0].Trim()
+        let (success, number) = Int32.TryParse(numberString)
+        if not success then 0 else number
 
 let private readTagsFromLookupResults (results: seq<LookupResult>) =
     results
@@ -589,10 +598,12 @@ let private readTagsFromLookupResults (results: seq<LookupResult>) =
 
             |> Promise.map
                 (fun id3 ->
+                    debug "track number %O" id3.Tags.Track
+
                     { Name = id3.Tags.Title
                       Artist = id3.Tags.Artist
                       Album = id3.Tags.Album
-                      TrackNumber = 0 // TODO
+                      TrackNumber = trackNumberFromTag id3.Tags.Track
                       Duration = TimeSpan.Zero // TODO
                       LastModified = lookupResult.ModificationTime
                       Path = lookupResult.Path }))
