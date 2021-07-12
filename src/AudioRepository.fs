@@ -107,15 +107,15 @@ let private initTrackTable (db: ISqLiteDatabase) =
     LastModified REAL)"
     |> Promise.map (fun _ -> debug "initalized Track table")
 
-let dateTimeToMilliseconds (timestamp: DateTime) =
+let private dateTimeToMilliseconds (timestamp: DateTime) =
     (timestamp - DateTime.MinValue.ToUniversalTime())
         .TotalMilliseconds
 
-let millisecondsToDateTime (milliseconds: float) =
+let private millisecondsToDateTime (milliseconds: float) =
     DateTime.MinValue.ToUniversalTime()
     + TimeSpan.FromMilliseconds(milliseconds)
 
-let normalizeDateTime (timestamp: DateTime) =
+let private normalizeDateTime (timestamp: DateTime) =
     timestamp
     |> dateTimeToMilliseconds
     |> millisecondsToDateTime
