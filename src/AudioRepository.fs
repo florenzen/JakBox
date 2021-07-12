@@ -355,22 +355,26 @@ let private (++) (left: Changes) (right: Changes) =
       Changed = Seq.append left.Changed right.Changed
       Removed = Seq.append left.Removed right.Removed }
 
-let private lookupTracksByPaths
+let rec private lookupTracksByPaths
     (db: ISqLiteDatabase)
     (pathsAndModificationTimes: (string * DateTime) list)
-    : JS.Promise<LookupResult []> =
-    let lookupPromises =
-        pathsAndModificationTimes
-        |> List.map
-            (fun (path, modTime) ->
-                findTrackByPath db path
-                |> Promise.map
-                    (fun maybeTrack ->
-                        { Path = path
-                          ModificationTime = modTime
-                          MaybeTrack = maybeTrack }))
+    : JS.Promise<LookupResult list> =
 
-    Promise.all (Array.ofList lookupPromises)
+    match pathsAndModificationTimes with
+    | [] -> Promise.lift []
+    | (path, modificationTime) :: rest ->
+        findTrackByPath db path
+        |> Promise.bind
+            (fun maybeTrack ->
+                lookupTracksByPaths db rest
+                |> Promise.bind
+                    (fun lookupResults ->
+                        let lookupResult =
+                            { Path = path
+                              ModificationTime = modificationTime
+                              MaybeTrack = maybeTrack }
+
+                        Promise.lift (lookupResult :: lookupResults)))
 
 let private addedAndChangedFromLookupResults (lookupResults: seq<LookupResult>) =
     lookupResults
@@ -412,7 +416,7 @@ let private findAllChanges (repo: AudioRepo) : JS.Promise<Changes> =
             |> Promise.bind
                 (fun lookupResults ->
                     lookupResults
-                    |> Array.iter (fun result -> debug "lookup result %O" result)
+                    |> List.iter (fun result -> debug "lookup result %O" result)
 
                     let changesAddedChanged =
                         addedAndChangedFromLookupResults lookupResults
@@ -466,20 +470,24 @@ let private insertDirectories (db: ISqLiteDatabase) (path: string) =
 let rec private insertTaggedTracks (db: ISqLiteDatabase) (albumId: int32) (taggedTracks: TaggedTrack list) =
     let insertSingleTaggedTrack (taggedTrack: TaggedTrack) =
         debug "going to insert %s" taggedTrack.Name
+
         insertDirectories db taggedTrack.Path
-        |> Promise.bind (fun maybeDirectoryId ->
-            db.ExecuteSql(
-                "INSERT INTO Track (Name, AlbumId, TrackNumber, Duration, Filename, LastModified, DirectoryId) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [| taggedTrack.Name
-                   albumId
-                   taggedTrack.TrackNumber
-                   0 // TODO
-                   Path.filename taggedTrack.Path
-                   0 // TODO
-                   maybeDirectoryId|])        
-                |> Promise.bind (fun _ ->
-                    debug "inserted %s" taggedTrack.Name
-                    Promise.lift ()))
+        |> Promise.bind
+            (fun maybeDirectoryId ->
+                db.ExecuteSql(
+                    "INSERT INTO Track (Name, AlbumId, TrackNumber, Duration, Filename, LastModified, DirectoryId) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [| taggedTrack.Name
+                       albumId
+                       taggedTrack.TrackNumber
+                       0 // TODO
+                       Path.filename taggedTrack.Path
+                       0 // TODO
+                       maybeDirectoryId |]
+                )
+                |> Promise.bind
+                    (fun _ ->
+                        debug "inserted %s" taggedTrack.Name
+                        Promise.lift ()))
 
     match taggedTracks with
     | [] -> Promise.lift ()
