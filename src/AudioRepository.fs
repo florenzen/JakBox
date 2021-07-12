@@ -115,6 +115,11 @@ let millisecondsToDateTime (milliseconds: float) =
     DateTime.MinValue.ToUniversalTime()
     + TimeSpan.FromMilliseconds(milliseconds)
 
+let normalizeDateTime (timestamp: DateTime) =
+    timestamp
+    |> dateTimeToMilliseconds
+    |> millisecondsToDateTime
+
 let private generateSelectForFilePath (path: string) : string * string [] =
     // path "/a/b/d/f2.mp3"
     // SELECT t.Id, t.Name FROM Track t
@@ -300,7 +305,7 @@ let private findAllAudioFilesWithModificationTime (rootDirectoryPaths: seq<strin
             |> Promise.map
                 (fun results ->
                     results
-                    |> Array.map (fun (path, statResult) -> (path, statResult.Mtime))
+                    |> Array.map (fun (path, statResult) -> (path, normalizeDateTime statResult.Mtime))
                     |> List.ofArray))
 
 let openRepo (dbName: string) (rootDirectoryPaths: seq<string>) =
@@ -581,8 +586,7 @@ let private readTagsFromLookupResults (results: seq<LookupResult>) =
                 [ JsMediaTags.Title
                   JsMediaTags.Artist
                   JsMediaTags.Album
-                  JsMediaTags.Track
-                ]
+                  JsMediaTags.Track ]
 
             |> Promise.map
                 (fun id3 ->
