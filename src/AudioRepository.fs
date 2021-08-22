@@ -715,7 +715,6 @@ let updateRepo (repo: AudioRepo) : JS.Promise<AudioRepo> =
         do! writeChangedToDb repo.Database changes.Changed
         // TODO remove deleted
         // TODO delete unref'd artists and albums and directories
-        // TODO Update num track per album
         // TODO read album covers as first readable cover of files in track order of that album
         do! updateNumTracksPerAlbum repo.Database
         let! numberOfAlbumsResult = repo.Database.ExecuteSql("SELECT * FROM Album")
