@@ -704,23 +704,26 @@ let private writeChangedToDb (db: ISqLiteDatabase) (changed: seq<LookupResult>) 
     |> readTagsFromLookupResults
     |> Promise.bind (updateTaggedTracks db)
 
+let updateNumTracksPerAlbum (db: ISqLiteDatabase) =
+    db.ExecuteSql("UPDATE Album SET NumTrack = (SELECT COUNT(*) FROM Track t WHERE t.AlbumId = Album.Id)")
+    |> Promise.map ignore
 
 let updateRepo (repo: AudioRepo) : JS.Promise<AudioRepo> =
     promise {
         let! changes = findAllChanges repo
-        let! _ = writeAddedToDb repo.Database changes.Added
-        let! _ = writeChangedToDb repo.Database changes.Changed
+        do! writeAddedToDb repo.Database changes.Added
+        do! writeChangedToDb repo.Database changes.Changed
         // TODO remove deleted
         // TODO delete unref'd artists and albums and directories
-        // TODO fix missing track numbers
+        // TODO Update num track per album
         // TODO read album covers as first readable cover of files in track order of that album
+        do! updateNumTracksPerAlbum repo.Database
         let! numberOfAlbumsResult = repo.Database.ExecuteSql("SELECT * FROM Album")
         debug "number of albums %i" numberOfAlbumsResult.Rows.Length
         let! numberOfTracksResult = repo.Database.ExecuteSql("SELECT * FROM Track")
         debug "number of tracks %i" numberOfTracksResult.Rows.Length
         return repo
     }
-
 
 let updateRepo1 (repo: AudioRepo) =
     findAllAudioFilesWithModificationTime repo.RootDirectoryPaths
