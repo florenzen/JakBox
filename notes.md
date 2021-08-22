@@ -1,5 +1,7 @@
 # Notes
 
+## Development
+
 * Build watcher:
 ```bash
 yarn fable-splitter -c splitter.config.js -w --define DEBUG
@@ -15,3 +17,8 @@ npx react-native run-android
 ```bash
 adb pull /data/data/com.jakbox/databases/repo.sqlite ~/tmp/repo1.sqlite
 ```
+
+## Tasks
+
+* Store duration of track
+* Store first available track cover as album cover
